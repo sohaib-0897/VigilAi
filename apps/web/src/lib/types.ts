@@ -1,0 +1,10 @@
+export interface User { id: string; email: string; username: string; is_active: boolean; created_at: string; }
+export interface Camera { id: string; name: string; description?: string; source_type: string; source_uri: string; enabled: boolean; analytics_enabled: boolean; status: string; status_message?: string; width?: number; height?: number; fps?: number; created_at: string; updated_at: string; }
+export interface Zone { id: string; camera_id: string; name: string; zone_type: string; points: Point[]; color: string; enabled: boolean; }
+export interface Point { x: number; y: number; }
+export interface VirtualLine { id: string; camera_id: string; name: string; start_point: Point; end_point: Point; direction_mode: string; color: string; enabled: boolean; }
+export interface AnalyticsRule { id: string; camera_id: string; name: string; rule_type: string; enabled: boolean; severity: string; object_classes?: string[]; zone_id?: string; line_id?: string; threshold_value?: number; cooldown_seconds: number; }
+export interface Event { id: string; camera_id: string; rule_id?: string; event_type: string; severity: string; object_class?: string; track_id?: number; zone_id?: string; line_id?: string; started_at: string; ended_at?: string; metadata?: any; status: string; evidences?: Evidence[]; fingerprint: string; created_at: string; }
+export interface Evidence { id: string; event_id: string; evidence_type: string; file_path: string; mime_type: string; width?: number; height?: number; }
+export interface PaginatedResponse<T> { items: T[]; total: number; page: number; page_size: number; pages: number; }
+export interface OverviewStats { total_cameras: number; active_cameras: number; events_today: number; high_severity_events: number; events_by_severity: Record<string, number>; people_count: number; vehicle_count: number; recent_events: Event[]; }

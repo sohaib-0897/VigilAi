@@ -1,0 +1,38 @@
+{
+  "benchmark_timestamp": "2026-09-11T22:09:23.045266+00:00",
+  "system": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.9",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.6,
+    "gpu": "NOT_AVAILABLE"
+  },
+  "configuration": {
+    "model": ".verification/yolov8n.pt",
+    "image_size": 640,
+    "device": "cpu",
+    "warmup_runs": 3,
+    "measured_runs": 20
+  },
+  "backends": {
+    "pytorch": {
+      "backend": "pytorch",
+      "model": ".verification/yolov8n.pt",
+      "device": "cpu",
+      "image_size": 640,
+      "warmup_runs": 3,
+      "measured_runs": 20,
+      "fps": 16.36,
+      "mean_latency_ms": 61.14,
+      "p50_latency_ms": 57.74,
+      "p95_latency_ms": 93.56,
+      "min_latency_ms": 44.4,
+      "max_latency_ms": 93.56,
+      "std_latency_ms": 13.63,
+      "model_size_mb": 6.25,
+      "cpu_memory_mb": 376.61,
+      "gpu_memory_mb": "NOT_MEASURED"
+    }
+  }
+}

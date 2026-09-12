@@ -1,0 +1,22 @@
+{
+  "source_model": ".verification/yolov8n.pt",
+  "output_path": ".verification\\yolov8n.onnx",
+  "format": "onnx",
+  "opset": 17,
+  "image_size": 640,
+  "fp16": false,
+  "simplified": false,
+  "dynamic_batch": false,
+  "file_size_mb": 12.23,
+  "export_time_seconds": 127.45,
+  "exported_at": "2026-09-11T22:06:54.714503+00:00",
+  "onnx_validation": {
+    "valid": true,
+    "input_name": "images",
+    "input_shape": "[1, 3, 640, 640]",
+    "output_names": [
+      "output0"
+    ],
+    "test_inference_ms": 134.2
+  }
+}
