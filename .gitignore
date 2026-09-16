@@ -9,8 +9,8 @@
 .mypy_cache/
 *.egg-info/
 *.tsbuildinfo
-evidence/
-uploads/
+/evidence/
+/uploads/
 /models/
 *.pt
 *.onnx
