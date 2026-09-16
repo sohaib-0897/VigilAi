@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+
 export default {
   darkMode: ["class"],
   content: [
@@ -42,11 +43,38 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        neo: {
+          bg: "#FFFDF5",
+          ink: "#000000",
+          red: "#FF5C5C",
+          yellow: "#FFD93D",
+          violet: "#C4B5FD",
+          green: "#5DE271",
+          white: "#FFFFFF",
+          cream: "#FFFDF5",
+          muted: "#EFEBD9",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-space-grotesk)", "Space Grotesk", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "Courier New", "monospace"],
+      },
+      boxShadow: {
+        "neo-sm": "4px 4px 0px #000000",
+        "neo-md": "6px 6px 0px #000000",
+        "neo-lg": "8px 8px 0px #000000",
+        "neo-hero": "12px 12px 0px #000000",
+        "neo-red": "4px 4px 0px #FF5C5C",
+        "neo-yellow": "4px 4px 0px #FFD93D",
+        "neo-green": "4px 4px 0px #5DE271",
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        none: "0px",
+        DEFAULT: "0px",
+        sm: "0px",
+        md: "0px",
+        lg: "0px",
+        full: "9999px",
       },
     },
   },

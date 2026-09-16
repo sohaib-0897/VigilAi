@@ -8,3 +8,4 @@ export interface Event { id: string; camera_id: string; rule_id?: string; event_
 export interface Evidence { id: string; event_id: string; evidence_type: string; file_path: string; mime_type: string; width?: number; height?: number; }
 export interface PaginatedResponse<T> { items: T[]; total: number; page: number; page_size: number; pages: number; }
 export interface OverviewStats { total_cameras: number; active_cameras: number; events_today: number; high_severity_events: number; events_by_severity: Record<string, number>; people_count: number; vehicle_count: number; recent_events: Event[]; }
+export interface SystemMetrics { workers: number; cpu_usage_percent?: number | null; memory_usage_percent?: number | null; active_streams?: number | null; frames_processed?: number | null; frames_dropped?: number | null; pipeline_fps?: number | null; }

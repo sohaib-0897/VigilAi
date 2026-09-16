@@ -24,49 +24,47 @@ class TestBBoxCentroid:
 
 class TestPointInPolygon:
     def test_point_inside_square(self, sample_polygon):
-        assert point_in_polygon((0.5, 0.5), sample_polygon) == True
+        assert point_in_polygon((0.5, 0.5), sample_polygon)
 
     def test_point_outside_square(self, sample_polygon):
-        assert point_in_polygon((1.5, 1.5), sample_polygon) == False
+        assert not point_in_polygon((1.5, 1.5), sample_polygon)
 
     def test_point_on_edge(self, sample_polygon):
-        # Depending on implementation, edge might be inside or outside.
-        # But for point_in_polygon with ray casting, it's typically inside or boundary cases might vary.
-        # Let's test a clearly outside point for strictness.
-        assert point_in_polygon((-0.1, -0.1), sample_polygon) == False
+        # Ray casting edge behavior; test clearly outside point for strictness
+        assert not point_in_polygon((-0.1, -0.1), sample_polygon)
 
     def test_point_inside_triangle(self):
         triangle = [(0.0, 0.0), (2.0, 0.0), (1.0, 2.0)]
-        assert point_in_polygon((1.0, 1.0), triangle) == True
+        assert point_in_polygon((1.0, 1.0), triangle)
 
     def test_point_outside_triangle(self):
         triangle = [(0.0, 0.0), (2.0, 0.0), (1.0, 2.0)]
-        assert point_in_polygon((1.0, 3.0), triangle) == False
+        assert not point_in_polygon((1.0, 3.0), triangle)
 
     def test_point_inside_complex_polygon(self):
         poly = [(0, 0), (2, 0), (2, 2), (1, 1), (0, 2)]
-        assert point_in_polygon((0.5, 1.0), poly) == True
-        assert point_in_polygon((1.0, 1.5), poly) == False
+        assert point_in_polygon((0.5, 1.0), poly)
+        assert not point_in_polygon((1.0, 1.5), poly)
 
     def test_point_at_vertex(self, sample_polygon):
-        assert point_in_polygon((0.0, 0.0), sample_polygon) == False
+        assert not point_in_polygon((0.0, 0.0), sample_polygon)
 
 
 class TestValidatePolygon:
     def test_valid_triangle(self):
-        assert validate_polygon([(0, 0), (1, 0), (0, 1)]) == True
+        assert validate_polygon([(0, 0), (1, 0), (0, 1)])
 
     def test_valid_rectangle(self):
-        assert validate_polygon([(0, 0), (1, 0), (1, 1), (0, 1)]) == True
+        assert validate_polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
 
     def test_too_few_points(self):
-        assert validate_polygon([(0, 0), (1, 0)]) == False
+        assert not validate_polygon([(0, 0), (1, 0)])
 
     def test_two_points(self):
-        assert validate_polygon([(0, 0), (1, 1)]) == False
+        assert not validate_polygon([(0, 0), (1, 1)])
 
     def test_single_point(self):
-        assert validate_polygon([(0, 0)]) == False
+        assert not validate_polygon([(0, 0)])
 
 
 class TestLineSide:
@@ -83,45 +81,45 @@ class TestLineSide:
 
 class TestSegmentsIntersect:
     def test_crossing_segments(self):
-        assert segments_intersect((0, 0), (1, 1), (0, 1), (1, 0)) == True
+        assert segments_intersect((0, 0), (1, 1), (0, 1), (1, 0))
 
     def test_parallel_segments(self):
-        assert segments_intersect((0, 0), (0, 1), (1, 0), (1, 1)) == False
+        assert not segments_intersect((0, 0), (0, 1), (1, 0), (1, 1))
 
     def test_non_intersecting(self):
-        assert segments_intersect((0, 0), (0.1, 0.1), (0, 1), (1, 0)) == False
+        assert not segments_intersect((0, 0), (0.1, 0.1), (0, 1), (1, 0))
 
     def test_touching_endpoint(self):
-        assert segments_intersect((0, 0), (1, 1), (1, 1), (2, 0)) == False
+        assert not segments_intersect((0, 0), (1, 1), (1, 1), (2, 0))
 
 
 class TestLineCrossing:
     def test_crossing_left_to_right(self):
         crossed, direction = detect_line_crossing((-1, 5), (1, 5), (0, 0), (0, 10))
-        assert crossed == True
+        assert crossed
         assert direction == "a_to_b"
 
     def test_crossing_right_to_left(self):
         crossed, direction = detect_line_crossing((1, 5), (-1, 5), (0, 0), (0, 10))
-        assert crossed == True
+        assert crossed
         assert direction == "b_to_a"
 
     def test_no_crossing_parallel(self):
-        crossed, direction = detect_line_crossing((-1, 0), (-1, 10), (0, 0), (0, 10))
-        assert crossed == False
+        crossed, _ = detect_line_crossing((-1, 0), (-1, 10), (0, 0), (0, 10))
+        assert not crossed
 
     def test_no_crossing_same_side(self):
-        crossed, direction = detect_line_crossing((-2, 5), (-1, 5), (0, 0), (0, 10))
-        assert crossed == False
+        crossed, _ = detect_line_crossing((-2, 5), (-1, 5), (0, 0), (0, 10))
+        assert not crossed
 
     def test_direction_a_to_b(self):
         crossed, direction = detect_line_crossing((0, -1), (0, 1), (-1, 0), (1, 0))
-        assert crossed == True
+        assert crossed
         assert direction == "b_to_a"
 
     def test_direction_b_to_a(self):
         crossed, direction = detect_line_crossing((0, 1), (0, -1), (-1, 0), (1, 0))
-        assert crossed == True
+        assert crossed
         assert direction == "a_to_b"
 
 

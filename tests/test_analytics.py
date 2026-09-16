@@ -2,6 +2,7 @@ from collections import deque
 
 import pytest
 
+from apps.api.vigilai_api.cv.analytics.counting import CountingAnalyzer
 from apps.api.vigilai_api.cv.analytics.dwell_analytics import DwellAnalyzer
 from apps.api.vigilai_api.cv.analytics.line_analytics import LineAnalyzer
 from apps.api.vigilai_api.cv.analytics.zone_analytics import ZoneAnalyzer, ZoneTransition
@@ -179,3 +180,56 @@ class TestDwellAnalytics:
         analyzer.on_zone_exit(1, "z1", 3.0)
         alerts = analyzer.check_thresholds(7.0)
         assert len(alerts) == 0
+
+
+class TestCountingAnalytics:
+    def test_repeated_track_does_not_increment_unique_count(self, make_track):
+        counting = CountingAnalyzer()
+        zone = ZoneAnalyzer()
+        line = LineAnalyzer()
+
+        # Track 1 appears for 100 consecutive frames
+        for frame_idx in range(100):
+            state = counting.update([make_track(1, 10.0 + frame_idx, 10.0)], zone, line)
+
+        assert state.total_unique_tracks == 1
+        assert state.current_object_count == 1
+        assert state.class_counts.get("person") == 1
+
+    def test_multiple_tracks_increment_uniquely(self, make_track):
+        counting = CountingAnalyzer()
+        zone = ZoneAnalyzer()
+        line = LineAnalyzer()
+
+        counting.update([make_track(1, 5.0, 5.0), make_track(2, 10.0, 10.0)], zone, line)
+        state = counting.update([make_track(2, 11.0, 10.0), make_track(3, 20.0, 20.0)], zone, line)
+
+        assert state.total_unique_tracks == 3
+        assert state.current_object_count == 2
+        assert state.class_counts.get("person") == 3
+
+    def test_out_of_order_track_ids(self, make_track):
+        counting = CountingAnalyzer()
+        zone = ZoneAnalyzer()
+        line = LineAnalyzer()
+
+        # Higher ID appears first, lower ID appears later
+        counting.update([make_track(10, 5.0, 5.0)], zone, line)
+        state = counting.update([make_track(3, 10.0, 10.0)], zone, line)
+
+        assert state.total_unique_tracks == 2
+        assert state.current_object_count == 1
+        assert state.class_counts.get("person") == 2
+
+    def test_counting_reset(self, make_track):
+        counting = CountingAnalyzer()
+        zone = ZoneAnalyzer()
+        line = LineAnalyzer()
+
+        counting.update([make_track(1, 5.0, 5.0)], zone, line)
+        counting.reset()
+        state = counting.update([], zone, line)
+
+        assert state.total_unique_tracks == 0
+        assert state.current_object_count == 0
+        assert len(state.class_counts) == 0

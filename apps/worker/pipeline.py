@@ -6,6 +6,7 @@ Runs in worker threads, processes video through:
 Detection -> Tracking -> Analytics -> Rules -> Events -> Evidence -> Streaming
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -27,7 +28,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from vigilai_api.cv.analytics.counting import CountingAnalyzer
-from vigilai_api.cv.analytics.dwell_analytics import DwellAlert, DwellAnalyzer
+from vigilai_api.cv.analytics.dwell_analytics import DwellAnalyzer
 from vigilai_api.cv.analytics.line_analytics import LineAnalyzer
 from vigilai_api.cv.analytics.zone_analytics import ZoneAnalyzer, ZoneTransition
 from vigilai_api.cv.annotator import FrameAnnotator
@@ -171,16 +172,15 @@ class CameraPipeline:
             )
             failures = 0
             while self._running:
-                if not self._video_source.is_open():
-                    if not self._video_source.open():
-                        worker_db.update_camera_status(
-                            self._camera_id, "error", "Unable to open video source"
-                        )
-                        if source_type == "local_video":
-                            break
-                        failures += 1
-                        self._stop_event.wait(min(2 ** min(failures, 5), 30))
-                        continue
+                if not self._video_source.is_open() and not self._video_source.open():
+                    worker_db.update_camera_status(
+                        self._camera_id, "error", "Unable to open video source"
+                    )
+                    if source_type == "local_video":
+                        break
+                    failures += 1
+                    self._stop_event.wait(min(2 ** min(failures, 5), 30))
+                    continue
                 began = time.monotonic()
                 ok, frame = self._video_source.read()
                 if not ok or frame is None:
@@ -239,8 +239,6 @@ class CameraPipeline:
             frame, timestamp = frame_data
 
             try:
-                t_start = time.perf_counter()
-
                 # 1. Detection
                 detection_result = self._detector.detect(frame)
                 detections = (
@@ -315,17 +313,7 @@ class CameraPipeline:
                         elif ze.transition == ZoneTransition.EXIT:
                             self._dwell_analyzer.on_zone_exit(ze.track_id, ze.zone_id, timestamp)
                     self._dwell_analyzer.cleanup_stale(active_track_ids)
-                    dwell_alerts = [
-                        DwellAlert(
-                            s.zone_id,
-                            s.track_id,
-                            s.object_class,
-                            timestamp - s.entered_at,
-                            0,
-                            timestamp,
-                        )
-                        for s in self._dwell_analyzer._dwell_states.values()
-                    ]
+                    dwell_alerts = self._dwell_analyzer.check_thresholds(timestamp)
 
                 # 6. Counting
                 counting_state = None
@@ -467,7 +455,6 @@ class CameraPipeline:
                         logger.error(f"Failed to publish frame: {e}")
 
                 # 13. Update metrics
-                t_end = time.perf_counter()
                 self._metrics.record_inference_time(inference_ms)
                 self._metrics.record_frame_processed()
                 self._metrics.frames_dropped = self._frame_buffer.stats["frames_dropped"]
@@ -476,7 +463,7 @@ class CameraPipeline:
 
                 # Publish status update
                 if self._redis and int(time.time()) % 2 == 0:
-                    try:
+                    with contextlib.suppress(Exception):
                         self._redis.set(
                             f"vigilai:camera:{self._camera_id}:status",
                             json.dumps(
@@ -492,8 +479,6 @@ class CameraPipeline:
                             ),
                             ex=10,
                         )
-                    except Exception:
-                        pass
 
             except Exception as e:
                 logger.error(
@@ -575,15 +560,16 @@ class CameraPipeline:
         self._dwell_analyzer = DwellAnalyzer()
         # Set dwell thresholds from rules
         if rules_data:
+            dwell_thresholds = {}
             for r in rules_data:
                 if (
                     r.get("rule_type") == "dwell_time"
                     and r.get("zone_id")
-                    and r.get("threshold_value")
+                    and r.get("threshold_value") is not None
                 ):
-                    self._dwell_analyzer.set_thresholds(
-                        {str(r["zone_id"]): float(r["threshold_value"])}
-                    )
+                    dwell_thresholds[str(r["zone_id"])] = float(r["threshold_value"])
+            if dwell_thresholds:
+                self._dwell_analyzer.set_thresholds(dwell_thresholds)
 
         self._counting_analyzer = CountingAnalyzer()
         self._event_manager = EventManager(self._camera_id)

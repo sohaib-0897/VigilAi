@@ -27,7 +27,10 @@ class RedisManager:
 
     async def disconnect(self) -> None:
         if self.pubsub:
-            await self.pubsub.close()
+            if hasattr(self.pubsub, "aclose"):
+                await self.pubsub.aclose()
+            else:
+                await self.pubsub.close()
         if self.client:
             await self.client.aclose()
         if self.bytes_client:

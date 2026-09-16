@@ -26,11 +26,13 @@ class CountingAnalyzer:
     def update(
         self, tracks: list[Track], zone_analyzer: ZoneAnalyzer, line_analyzer: LineAnalyzer
     ) -> CountingState:
-        for t in sorted(tracks, key=lambda t: t.track_id):
-            if t.track_id > self._highest_id:
-                self._highest_id = t.track_id
+        for t in tracks:
+            if t.track_id not in self._seen_track_ids:
+                self._seen_track_ids.add(t.track_id)
                 self._total_unique += 1
                 self._class_totals[t.class_name] += 1
+                if t.track_id > self._highest_id:
+                    self._highest_id = t.track_id
 
         class_counts = dict(self._class_totals)
 

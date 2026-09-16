@@ -278,7 +278,7 @@ def run_benchmark(args: argparse.Namespace) -> dict:
         if pytorch_result:
             results["backends"]["pytorch"] = pytorch_result
             print(
-                f"  → FPS: {pytorch_result['fps']} | Mean: {pytorch_result['mean_latency_ms']}ms | P95: {pytorch_result['p95_latency_ms']}ms"
+                f"  -> FPS: {pytorch_result['fps']} | Mean: {pytorch_result['mean_latency_ms']}ms | P95: {pytorch_result['p95_latency_ms']}ms"
             )
 
     # ONNX benchmark
@@ -289,8 +289,9 @@ def run_benchmark(args: argparse.Namespace) -> dict:
             results["backends"]["onnxruntime"] = onnx_result
             if "fps" in onnx_result:
                 print(
-                    f"  → FPS: {onnx_result['fps']} | Mean: {onnx_result['mean_latency_ms']}ms | P95: {onnx_result['p95_latency_ms']}ms"
+                    f"  -> FPS: {onnx_result['fps']} | Mean: {onnx_result['mean_latency_ms']}ms | P95: {onnx_result['p95_latency_ms']}ms"
                 )
+
 
     # TensorRT benchmark
     if args.backend in ("auto", "tensorrt"):

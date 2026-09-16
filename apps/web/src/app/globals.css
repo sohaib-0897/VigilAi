@@ -4,55 +4,128 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --background: 48 100% 98%;      /* #FFFDF5 Warm Cream */
+    --foreground: 0 0% 0%;           /* #000000 Solid Black */
+    --card: 0 0% 100%;               /* #FFFFFF Clean white cards */
+    --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 0%;              /* Primary is punchy black */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 48 100% 62%;        /* #FFD93D Signal Yellow */
+    --secondary-foreground: 0 0% 0%;
+    --muted: 48 30% 92%;             /* #EFEBD9 Muted Cream */
+    --muted-foreground: 0 0% 25%;
+    --accent: 252 95% 85%;           /* #C4B5FD Tracking Violet */
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 68%;       /* #FF5C5C Vigil Red */
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 0%;               /* Solid Black borders */
+    --input: 0 0% 0%;                /* Solid Black input borders */
+    --ring: 0 0% 0%;                 /* Solid Black focus ring */
+    --radius: 0px;                   /* Sharp 0px corners */
   }
+
+  /* Support dark mode while respecting controlled operational brutalism */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 0 0% 7%;           /* Dark industrial charcoal #121212 */
+    --foreground: 48 100% 98%;       /* #FFFDF5 Cream text */
+    --card: 0 0% 10%;                /* Dark panel */
+    --card-foreground: 48 100% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 48 100% 98%;
+    --primary: 48 100% 62%;          /* Signal Yellow primary in dark */
+    --primary-foreground: 0 0% 0%;
+    --secondary: 252 95% 85%;        /* Tracking violet */
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 75%;
+    --accent: 48 100% 62%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 68%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 100%;             /* White/crisp borders in dark mode */
+    --input: 0 0% 100%;
+    --ring: 48 100% 62%;
+    --radius: 0px;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: #000000;
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: #FFFDF5;
+    color: #000000;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Sharp focus outline */
+  :focus-visible {
+    outline: 2px solid #000000;
+    outline-offset: 2px;
+  }
+
+  /* Custom mechanical scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FFFDF5;
+    border-left: 2px solid #000000;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #000000;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #FFD93D;
+  }
+}
+
+/* Operational technical grid background */
+.bg-tech-grid {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+}
+
+.bg-tech-dots {
+  background-size: 20px 20px;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+}
+
+/* Mechanical click effect */
+.btn-press {
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.btn-press:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000000 !important;
+}
+
+/* Technical hazard / warning stripes */
+.hazard-stripes {
+  background: repeating-linear-gradient(
+    -45deg,
+    #FFD93D,
+    #FFD93D 10px,
+    #000000 10px,
+    #000000 20px
+  );
+}
+
+.hazard-stripes-red {
+  background: repeating-linear-gradient(
+    -45deg,
+    #FF5C5C,
+    #FF5C5C 10px,
+    #000000 10px,
+    #000000 20px
+  );
 }

@@ -1,5 +1,5 @@
 try:
-    from prometheus_client import Counter, Gauge, Histogram, start_http_server
+    from prometheus_client import Counter, Gauge, Histogram
 
     FRAMES_RECEIVED = Counter(
         "vigilai_frames_received_total", "Total frames received", ["camera_id"]

@@ -13,6 +13,10 @@ class SystemMetrics(BaseModel):
     active_streams: int | None = None
     events_per_minute: float | None = None
     workers: int = 0
+    frames_processed: int | None = None
+    frames_dropped: int | None = None
+    pipeline_fps: float | None = None
+
 
 
 class HealthResponse(BaseModel):

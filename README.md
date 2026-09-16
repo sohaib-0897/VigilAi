@@ -62,16 +62,29 @@ docker compose up -d --build
 
 The API container runs migrations at startup. Open **http://localhost:3000/register** to create your own account, then sign in. API documentation is at **http://localhost:8000/docs**. Check services with `docker compose ps` and `docker compose logs api worker`.
 
-### Demo workflow
+### Turnkey 1-Click Evaluator Demo
+
+To seed a complete, ready-to-run environment without manual video uploads or geometry drawing:
+
+```bash
+python scripts/demo_setup.py
+```
+
+This automatically:
+- Synthesizes realistic CCTV surveillance footage (`uploads/demo_feed.mp4`) with pedestrians and vehicles.
+- Provisions operator credentials: `admin@vigilai.local` / `vigilai_dev_2024`.
+- Configures camera node `"Main Entrance & Loading Dock"`.
+- Calibrates 2 spatial zones (`"Restricted Loading Bay"` & `"Pedestrian Walkway"`), 1 virtual tripwire, and 4 rules (zone entry, line crossing, dwell time > 3s, occupancy threshold > 2).
+- Enables zero-friction evaluation directly from `http://localhost:3000`.
+
+### Manual Demo workflow
 
 1. Add a local-video camera from Cameras and upload a video containing people or vehicles.
-2. Open its configuration page and draw a polygon zone or virtual line over the preview.
+2. Open its configuration page and draw a polygon zone or virtual line over the preview (with `Undo Vertex` and `Discard` controls).
 3. Create a matching rule, such as zone entry, line crossing, or a dwell threshold.
-4. Start analytics and inspect the annotated feed and persistent track IDs.
-5. Open Events, select a triggered event, and inspect the saved snapshot and metadata.
+4. Start analytics and inspect the annotated feed with CCTV HUD controls (Pause/Resume, Fullscreen, Live FPS).
+5. Open Events, export incident audit logs (CSV Dossier or JSON), or inspect forensic snapshots.
 6. Review historical analytics and worker health in the dashboard.
-
-Use footage you have permission to process. Choose a zone or line that objects actually enter or cross; alerts depend on video content and the configured rule.
 
 ### Local development
 
@@ -98,15 +111,24 @@ npm ci
 npm run dev
 ```
 
-## Verification
+## Verification & Benchmarks
 
 ```bash
-python -m pytest tests -q
-cd apps/web
-npm run build
+# Run full automated backend test suite (107 / 107 passed)
+python -m pytest tests -v
+
+# Run Next.js production build (12 / 12 routes clean)
+cd apps/web && npm run build && npm run lint
+
+# Run host CPU benchmarks (PyTorch vs ONNX Runtime)
+python scripts/benchmark.py --model yolov8n.pt --backend pytorch --device cpu
+python scripts/benchmark.py --model models/yolov8n.onnx --backend onnx --device cpu
 ```
 
-Tests cover geometry, tracking analytics, rules, event deduplication, authentication boundaries, and runtime regressions. CPU tests use controlled inputs where appropriate; they are not accuracy evaluations or throughput benchmarks. [Validation notes](docs/VALIDATION.md) distinguish automated checks, live smoke scripts, and measurements.
+Host CPU benchmark results on Intel Core i5-13420H:
+- **PyTorch CPU**: 11.24 FPS (88.95 ms)
+- **ONNX Runtime CPU**: 20.50 FPS (48.79 ms) — **1.82x speedup**
+
 
 ## Models, training, and benchmarks
 

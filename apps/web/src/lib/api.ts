@@ -19,7 +19,7 @@ class ApiClient {
         ...options?.headers,
       },
     });
-    if (res.status === 401 && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    if (res.status === 401 && typeof window !== 'undefined' && !['/login', '/register'].includes(window.location.pathname)) {
       window.location.href = '/login';
       throw new Error('Unauthorized');
     }
@@ -71,6 +71,20 @@ class ApiClient {
   }
   async getEvent(id: string): Promise<Event> { return this.request(`/events/${id}`); }
   async updateEventStatus(id: string, status: string): Promise<Event> { return this.request(`/events/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); }
+  async exportEvents(filters: { format?: 'csv' | 'json'; camera_id?: string; severity?: string; event_type?: string; status?: string } = {}): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters.format) params.append('format', filters.format);
+    if (filters.camera_id) params.append('camera_id', filters.camera_id);
+    if (filters.severity && filters.severity !== 'all') params.append('severity', filters.severity);
+    if (filters.event_type) params.append('event_type', filters.event_type);
+    if (filters.status) params.append('status', filters.status);
+
+    const res = await fetch(`${API_BASE}/events/export?${params.toString()}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to export events');
+    return res.blob();
+  }
 
   async getOverview(): Promise<OverviewStats> { return this.request('/analytics/overview'); }
   async getTimeseries(params?: any): Promise<{period: string; count: number}[]> {

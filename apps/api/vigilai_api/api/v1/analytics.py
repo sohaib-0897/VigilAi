@@ -23,7 +23,7 @@ async def get_overview(
 async def get_timeseries(
     start: datetime | None = None,
     end: datetime | None = None,
-    interval: str = Query("day", regex="^(hour|day|week|month)$"),
+    interval: str = Query("day", pattern="^(hour|day|week|month)$"),
     camera_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_auth),

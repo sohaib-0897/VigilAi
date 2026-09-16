@@ -14,7 +14,7 @@ class Point(BaseModel):
 class ZoneBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     zone_type: ZoneType
-    points: list[Point] = Field(..., min_items=3)
+    points: list[Point] = Field(..., min_length=3)
     color: str = Field(default="#FF0000", pattern="^#[0-9A-Fa-f]{6}$")
     enabled: bool = True
 
@@ -26,7 +26,7 @@ class ZoneCreate(ZoneBase):
 class ZoneUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     zone_type: ZoneType | None = None
-    points: list[Point] | None = Field(None, min_items=3)
+    points: list[Point] | None = Field(None, min_length=3)
     color: str | None = Field(None, pattern="^#[0-9A-Fa-f]{6}$")
     enabled: bool | None = None
 

@@ -50,6 +50,8 @@ class TestPipelineIntegration:
         all_matches = []
         for ze in zone_events:
             all_matches.extend(rules_engine.evaluate_zone_event(ze))
+        for le in line_events:
+            all_matches.extend(rules_engine.evaluate_line_crossing(le))
 
         # 7. Run event manager -> get deduplicated events
         final_events = []

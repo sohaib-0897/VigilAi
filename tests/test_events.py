@@ -70,6 +70,7 @@ class TestEventManager:
     def test_expired_track_resolves(self, sample_match):
         manager = EventManager("cam1")
         evt1 = manager.process_rule_match(sample_match)
+        assert evt1 is not None
 
         resolved_list = manager.check_expired_events(set([2]), 110.0)
         assert len(resolved_list) == 1
