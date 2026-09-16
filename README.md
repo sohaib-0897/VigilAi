@@ -2,9 +2,11 @@
 
 **Video analytics with persistent tracking, configurable rules, and reviewable evidence.**
 
-VigilAI turns local video, RTSP streams, and webcam input into tracked objects, zone occupancy, directional line crossings, dwell alerts, and persisted events. A separate computer vision worker runs inference while a Next.js dashboard lets operators configure cameras and investigate alerts.
+## About
 
-Built as an applied computer vision and software engineering portfolio project. The focus is the complete path from video to evidence, with explicit state, bounded buffering, and testable analytics.
+VigilAI is an end-to-end computer vision project that turns video into incidents an operator can investigate. It accepts local video, RTSP streams, or webcam input; detects and tracks people and vehicles; applies configurable zone, line-crossing, dwell, and occupancy rules; and stores events with annotated snapshots in PostgreSQL. An authenticated Next.js dashboard provides camera setup, live monitoring, analytics, and evidence review.
+
+The engineering focus is the path between a model prediction and a reliable product signal: persistent track IDs, stateful analytics and event deduplication, bounded frame buffering, a worker separate from the API, and per-camera failure handling. The code includes CPU-testable geometry and event logic, database migrations, Docker Compose setup, and a reproducible training and benchmarking workflow. The [latest audit](docs/AUDIT_2026-09-17.md) records what has been run and what remains unverified; model accuracy, GPU throughput, and TensorRT gains are **NOT_MEASURED** here.
 
 [Quick start](#quick-start) · [Architecture](ARCHITECTURE.md) · [Operations](OPERATIONS.md) · [Engineering decisions](docs/decisions) · [Validation](docs/VALIDATION.md)
 
