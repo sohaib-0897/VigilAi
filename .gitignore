@@ -11,7 +11,7 @@
 *.tsbuildinfo
 evidence/
 uploads/
-models/
+/models/
 *.pt
 *.onnx
 *.engine
@@ -26,6 +26,9 @@ coverage.xml
 *.key
 .codex/
 .agents/
+.claude/
+gsd-core/
+*.tgz
 .idea/
 .vscode/
 /settings.json
