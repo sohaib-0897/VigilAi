@@ -1,0 +1,81 @@
+{
+  "model": "training_output/vigilai_ppe_v2_full/weights/best.pt",
+  "dataset": "datasets/construction-ppe/data.yaml",
+  "split": "test",
+  "image_size": 512,
+  "evaluated_at": "2026-09-20T22:00:35.218537+00:00",
+  "metrics": {
+    "precision": 0.5045,
+    "recall": 0.5043,
+    "mAP50": 0.5197,
+    "mAP50_95": 0.2608
+  },
+  "per_class_metrics": {
+    "helmet": {
+      "mAP50": 0.9274,
+      "mAP50_95": 0.4783,
+      "precision": 0.8703,
+      "recall": 0.9062
+    },
+    "gloves": {
+      "mAP50": 0.7483,
+      "mAP50_95": 0.3576,
+      "precision": 0.7882,
+      "recall": 0.7178
+    },
+    "vest": {
+      "mAP50": 0.8977,
+      "mAP50_95": 0.5634,
+      "precision": 0.7806,
+      "recall": 0.8933
+    },
+    "boots": {
+      "mAP50": 0.7288,
+      "mAP50_95": 0.3797,
+      "precision": 0.6088,
+      "recall": 0.6777
+    },
+    "goggles": {
+      "mAP50": 0.7271,
+      "mAP50_95": 0.3069,
+      "precision": 0.4989,
+      "recall": 0.75
+    },
+    "none": {
+      "mAP50": 0.4005,
+      "mAP50_95": 0.1494,
+      "precision": 0.4593,
+      "recall": 0.4462
+    },
+    "Person": {
+      "mAP50": 0.8423,
+      "mAP50_95": 0.5054,
+      "precision": 0.7736,
+      "recall": 0.8347
+    },
+    "no_helmet": {
+      "mAP50": 0.1703,
+      "mAP50_95": 0.0507,
+      "precision": 0.2594,
+      "recall": 0.175
+    },
+    "no_goggle": {
+      "mAP50": 0.1318,
+      "mAP50_95": 0.0359,
+      "precision": 0.202,
+      "recall": 0.0773
+    },
+    "no_gloves": {
+      "mAP50": 0.1324,
+      "mAP50_95": 0.0386,
+      "precision": 0.3086,
+      "recall": 0.069
+    },
+    "no_boots": {
+      "mAP50": 0.0105,
+      "mAP50_95": 0.0026,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  }
+}

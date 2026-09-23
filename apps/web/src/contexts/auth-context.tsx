@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         setUser(null);
-        if (pathname !== '/login' && pathname !== '/register') router.push('/login');
+        if (!['/', '/login', '/register'].includes(pathname)) router.push('/login');
       })
       .finally(() => setLoading(false));
   }, [pathname, router]);

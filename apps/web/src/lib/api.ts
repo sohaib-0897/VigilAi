@@ -19,7 +19,7 @@ class ApiClient {
         ...options?.headers,
       },
     });
-    if (res.status === 401 && typeof window !== 'undefined' && !['/login', '/register'].includes(window.location.pathname)) {
+    if (res.status === 401 && typeof window !== 'undefined' && !['/', '/login', '/register'].includes(window.location.pathname)) {
       window.location.href = '/login';
       throw new Error('Unauthorized');
     }
