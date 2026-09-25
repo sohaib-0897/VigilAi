@@ -45,3 +45,4 @@ class Camera(Base):
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
     fps = Column(Integer, nullable=True)
+    model_id = Column(String(100), default="coco-yolov8n-onnx", nullable=True)

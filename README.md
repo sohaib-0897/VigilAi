@@ -8,7 +8,7 @@ VigilAI is an end-to-end computer vision project that turns video into incidents
 
 The engineering focus is the path between a model prediction and a reliable product signal: persistent track IDs, stateful analytics and event deduplication, bounded frame buffering, a worker separate from the API, and per-camera failure handling. The code includes CPU-testable geometry and event logic, database migrations, Docker Compose setup, and a reproducible training and benchmarking workflow. The [latest audit](docs/AUDIT_2026-09-17.md) records what has been run and what remains unverified; model accuracy, GPU throughput, and TensorRT gains are **NOT_MEASURED** here.
 
-[Quick start](#quick-start) · [Architecture](ARCHITECTURE.md) · [Operations](OPERATIONS.md) · [Engineering decisions](docs/decisions) · [Validation](docs/VALIDATION.md)
+[Quick start](#quick-start) · [Architecture](ARCHITECTURE.md) · [Portfolio Defense](PORTFOLIO.md) · [Operations](OPERATIONS.md) · [Engineering decisions](docs/decisions) · [Validation](docs/VALIDATION.md)
 
 ## Engineering highlights
 
@@ -21,6 +21,8 @@ The engineering focus is the path between a model prediction and a reliable prod
 | Alerts must not fire on every frame | [Rule evaluation](apps/api/vigilai_api/cv/rules/engine.py) and [event lifecycle management](apps/api/vigilai_api/cv/events/manager.py) |
 | An alert needs evidence | [Annotated snapshots](apps/api/vigilai_api/cv/evidence/capture.py), PostgreSQL events, and an authenticated events UI |
 | Geometry must survive display resizing | [Normalized zone/line editor](apps/web/src/components/cameras/zone-editor.tsx) and independent geometry logic |
+| Configurable models per camera | [Model registry](apps/api/vigilai_api/core/models_registry.py) with thread-safe detector reuse |
+| PPE safety compliance monitoring | [Anatomical association & temporal state machine](apps/api/vigilai_api/cv/ppe) with zero false-alarm spam |
 
 ## Architecture
 
@@ -62,9 +64,9 @@ In PowerShell, use `Copy-Item .env.example .env`. Before startup, replace `SECRE
 docker compose up -d --build
 ```
 
-The API container runs migrations at startup. Open **http://localhost:3000/register** to create your own account, then sign in. API documentation is at **http://localhost:8000/docs**. Check services with `docker compose ps` and `docker compose logs api worker`.
+The API container runs migrations at startup. Open **http://localhost:3000/register** to create your own account, then sign in. In Cameras, select **USE DEMO VIDEO**, start analytics, and open the live monitor. The bundled clip is mounted read-only for the API and worker; the normal detector, tracker, analytics, rules, event, and evidence path processes it. API documentation is at **http://localhost:8000/docs**. Check services with `docker compose ps` and `docker compose logs api worker`.
 
-### Turnkey 1-Click Evaluator Demo
+### Local evaluator seed (optional)
 
 To seed a complete, ready-to-run environment without manual video uploads or geometry drawing:
 
@@ -72,16 +74,15 @@ To seed a complete, ready-to-run environment without manual video uploads or geo
 python scripts/demo_setup.py
 ```
 
-This automatically:
-- Synthesizes realistic CCTV surveillance footage (`uploads/demo_feed.mp4`) with pedestrians and vehicles.
-- Provisions operator credentials: `admin@vigilai.local` / `vigilai_dev_2024`.
+This local-only helper (not needed for deployment) can:
+- Verify or generate the synthetic CCTV clip at `assets/demo/demo_feed.mp4`.
+- Provisions a local operator account (`admin@vigilai.local` / `vigilai_dev_2024`), camera, geometry, and rules for development. Do not use its seeded credentials on a public deployment; register normally instead.
 - Configures camera node `"Main Entrance & Loading Dock"`.
 - Calibrates 2 spatial zones (`"Restricted Loading Bay"` & `"Pedestrian Walkway"`), 1 virtual tripwire, and 4 rules (zone entry, line crossing, dwell time > 3s, occupancy threshold > 2).
-- Enables zero-friction evaluation directly from `http://localhost:3000`.
 
 ### Manual Demo workflow
 
-1. Add a local-video camera from Cameras and upload a video containing people or vehicles.
+1. Select **USE DEMO VIDEO** in Cameras, or add a local-video camera and upload a video containing people or vehicles.
 2. Open its configuration page and draw a polygon zone or virtual line over the preview (with `Undo Vertex` and `Discard` controls).
 3. Create a matching rule, such as zone entry, line crossing, or a dwell threshold.
 4. Start analytics and inspect the annotated feed with CCTV HUD controls (Pause/Resume, Fullscreen, Live FPS).
@@ -115,38 +116,67 @@ npm run dev
 
 ## Verification & Benchmarks
 
+All metrics and test results reported below were executed on real host hardware (Intel Core i5-13420H, 8 physical cores / 12 logical threads, 15.65 GB RAM) — never fabricated.
+
+#### 1. Automated Test Suite & Production Builds
 ```bash
-# Run full automated backend test suite (107 / 107 passed)
+# Run full automated backend test suite (132 / 132 passed)
 python -m pytest tests -v
 
-# Run Next.js production build (12 / 12 routes clean)
+# Run Next.js production build (12 / 12 routes clean, 0 ESLint errors)
 cd apps/web && npm run build && npm run lint
-
-# Run host CPU benchmarks (PyTorch vs ONNX Runtime)
-python scripts/benchmark.py --model yolov8n.pt --backend pytorch --device cpu
-python scripts/benchmark.py --model models/yolov8n.onnx --backend onnx --device cpu
 ```
+* **Backend Coverage:** 132 / 132 tests passed covering Ray-Casting geometry, directional tripwires, ByteTrack multi-object tracking, dwell & occupancy analytics, stateful rule engine & deduplication, JWT auth, camera-bound stream tickets, model registry metadata, and the full PPE model pipeline with anatomical association and temporal compliance smoothing.
+* **Frontend Health:** 12 / 12 static and dynamic routes compiled cleanly in Next.js 15 App Router with 0 ESLint warnings or errors.
 
-Host CPU benchmark results on Intel Core i5-13420H:
-- **PyTorch CPU**: 11.24 FPS (88.95 ms)
-- **ONNX Runtime CPU**: 20.50 FPS (48.79 ms) — **1.82x speedup**
-
-
-## Models, training, and benchmarks
+### 2. End-to-End Real-Time Pipeline Benchmarks
+Full video pipeline: Video Decode (30 FPS source) -> Bounded Buffer (15 frames, drop-oldest) -> YOLO/ONNX Detector -> ByteTrack Tracking -> Geometry & Analytics -> Rules Engine -> Event Deduplication -> Frame Annotator.
 
 ```bash
-# Requires an annotated dataset with appropriate splits
-python scripts/train.py --data path/to/data.yaml --epochs 100 --batch 16
-python scripts/evaluate.py --model path/to/best.pt --data path/to/data.yaml --split test
-
-# Requires an existing PyTorch weights file
-python scripts/export_onnx.py --model models/best.pt --output models/best.onnx
-
-# Measures actual model execution on synthetic input
-python scripts/benchmark.py --model models/best.pt --backend pytorch --warmup 10 --runs 100 --output benchmarks/results.json
+python scripts/benchmark_full_pipeline.py
 ```
 
-Set `YOLO_MODEL_PATH` to select weights or an ONNX model. JSON files in [benchmarks](benchmarks) are retained measurement artifacts with [scope and caveats](benchmarks/README.md). Their inference timings do not represent end-to-end video throughput. Dataset precision, recall, mAP, GPU throughput, and TensorRT gains are **NOT_MEASURED** in this repository's published validation.
+| Configuration | Input Resolution | Source FPS | Processed FPS | Model Latency | Drop Rate | Aggregate FPS |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **ONNX Runtime (1 stream)** | 720p (1280×720) | 30.0 fps | **21.5 fps** | 39.0 ms | **0.0%** | **21.5 fps** |
+| **ONNX Runtime (2 streams)**| 720p (1280×720) | 30.0 fps | **14.4 fps/stream**| 59.8 ms | 32.5% | **28.9 fps** |
+| **ONNX Runtime (1 stream)** | 1080p (1920×1080)| 30.0 fps | **20.6 fps** | 40.2 ms | 8.3% | **20.6 fps** |
+| **ONNX Runtime (2 streams)**| 1080p (1920×1080)| 30.0 fps | **7.4 fps/stream** | 126.7 ms | 59.7% | **14.8 fps** |
+| **PyTorch (1 stream)** | 720p (1280×720) | 30.0 fps | **9.7 fps** | 85.9 ms | 19.0% | **9.7 fps** |
+| **PyTorch (2 streams)** | 720p (1280×720) | 30.0 fps | **1.1 fps/stream** | 803.8 ms | 92.8% | **2.2 fps** |
+| **PyTorch (1 stream)** | 1080p (1920×1080)| 30.0 fps | **7.4 fps** | 116.6 ms | 63.3% | **7.4 fps** |
+| **PyTorch (2 streams)** | 1080p (1920×1080)| 30.0 fps | **2.7 fps/stream** | 338.9 ms | 83.5% | **5.4 fps** |
+
+*Measured artifact: [`benchmarks/pipeline_benchmarks.json`](benchmarks/pipeline_benchmarks.json). See [`PORTFOLIO.md`](PORTFOLIO.md) for the stage-by-stage profiling breakdown and analysis of why optimized ONNX out-scales PyTorch by 13× under multi-camera CPU concurrency.*
+
+### 3. Custom YOLOv8 Fine-Tuning Run (PPE Safety Domain)
+```bash
+# Validate complete official dataset (1,416 images, 11,521 instances)
+python scripts/validate_ppe_dataset.py
+
+# Execute full fine-tuning (12 epochs, calibrated 512x512, RAM cache, CPU)
+python scripts/train.py --data datasets/construction-ppe/data.yaml --model yolov8n.pt --epochs 12 --batch 16 --imgsz 512 --device cpu --name vigilai_ppe_v2_full --cache
+
+# Evaluate checkpoint on strictly held-out test split (141 images, 1,251 instances)
+python scripts/evaluate.py --model models/vigilai_ppe_v2.pt --data datasets/construction-ppe/data.yaml --split test --imgsz 512 --output-file benchmarks/ppe_test_results.json
+
+# Export to ONNX and run inference benchmarks
+python scripts/export_onnx.py --model models/vigilai_ppe_v2.pt --imgsz 512 --output models/vigilai_ppe_v2.onnx
+python scripts/benchmark.py --model models/vigilai_ppe_v2.pt --imgsz 512 --device cpu --output benchmarks/ppe_inference_benchmarks.json
+```
+- **Dataset:** Official Ultralytics Construction-PPE (`AGPL-3.0`)
+  - Scale: 1,416 total images (1,132 train, 143 val, 141 held-out test), 11,521 annotated bounding box instances.
+  - Zero corrupt images, 0 malformed labels, 0 cross-split hash collisions ([`benchmarks/ppe_dataset_report.json`](benchmarks/ppe_dataset_report.json)).
+- **Classes (11):** `helmet`, `gloves`, `vest`, `boots`, `goggles`, `none`, `Person`, `no_helmet`, `no_goggle`, `no_gloves`, `no_boots`
+- **Artifacts:** `models/vigilai_ppe_v2.pt` (5.94 MB) and `models/vigilai_ppe_v2.onnx` (11.62 MB).
+- **Strictly Held-Out Test Set Metrics (Zero Prior Exposure):**
+  - **Overall:** Precision: `0.5045` · Recall: `0.5043` · mAP@50: `0.5197` (52.0%) · mAP@50-95: `0.2608`
+  - **Core Equipment:** `helmet` mAP@50: **0.9274** · `vest` mAP@50: **0.8977** · `Person` mAP@50: **0.8423** · `gloves` mAP@50: **0.7483** · `boots` mAP@50: **0.7288** · `goggles` mAP@50: **0.7271**
+  - Error Analysis & Imbalance Breakdown: [`benchmarks/ppe_error_analysis.md`](benchmarks/ppe_error_analysis.md)
+- **CPU Inference Speed (512x512, Intel Core i5-13420H):**
+  - PyTorch CPU: **16.4 FPS** (60.96 ms mean latency)
+  - ONNX Runtime CPU: **25.59 FPS** (39.08 ms mean latency) — **1.56× speedup**
+- **Detector Abstraction Integration:** Verified via `YOLODetector("models/vigilai_ppe_v2.pt")` and `ONNXDetector("models/vigilai_ppe_v2.onnx")`. Both automatically load and configure class names and dimensions from model metadata.
 
 ## Repository map
 

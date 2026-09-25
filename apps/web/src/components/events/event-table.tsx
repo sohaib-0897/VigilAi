@@ -35,13 +35,18 @@ export function EventTable({ events }: { events: Event[] }) {
               {new Date(ev.created_at).toISOString().replace('T', ' ').substring(0, 19)}
             </TableCell>
             <TableCell>
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <span className="font-black uppercase tracking-tight text-black text-xs sm:text-sm">
-                  {ev.event_type.replace('_', ' ')}
+                  {ev.event_type.replace(/_/g, ' ')}
                 </span>
                 {ev.track_id !== null && ev.track_id !== undefined && (
                   <span className="font-mono text-[10px] bg-neo-muted border border-black/40 px-1 py-0.2 font-bold text-black">
                     TRK #{ev.track_id}
+                  </span>
+                )}
+                {ev.metadata?.missing_ppe && (
+                  <span className="font-mono text-[9px] bg-neo-red border border-black px-1.5 py-0.5 font-black text-white uppercase shadow-[1px_1px_0px_#000000]">
+                    NO {ev.metadata.missing_ppe.join(', ')}
                   </span>
                 )}
               </div>

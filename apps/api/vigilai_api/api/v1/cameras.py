@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -48,6 +49,22 @@ async def create_camera(
 ):
     service = CameraService(db)
     return await service.create_camera(current_user.id, camera_in.model_dump())
+
+
+@router.post("/demo", response_model=CameraResponse)
+async def create_demo_camera(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
+):
+    """Create or return the user's camera for the bundled, server-selected demo video."""
+    demo_path = Path(get_settings().DEMO_VIDEO_PATH).resolve()
+    if not demo_path.is_file():
+        raise HTTPException(
+            status_code=503,
+            detail="Bundled demo video is unavailable on this deployment",
+        )
+    service = CameraService(db)
+    return await service.get_or_create_demo_camera(current_user.id, str(demo_path))
 
 
 @router.get("/{camera_id}", response_model=CameraResponse)

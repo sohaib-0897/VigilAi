@@ -51,29 +51,57 @@ class EvidenceCapture:
                 2,
             )
 
+        is_ppe_violation = event.event_type == "ppe_violation"
+        missing_ppe = (event.metadata or {}).get("missing_ppe", [])
+
         for t in tracks:
             if t.track_id == event.track_id:
                 x1, y1, x2, y2 = map(int, [t.bbox.x1, t.bbox.y1, t.bbox.x2, t.bbox.y2])
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 255), 2)
+                box_color = (0, 0, 255) if is_ppe_violation else (0, 255, 255)
+                box_thickness = 3 if is_ppe_violation else 2
+                cv2.rectangle(img, (x1, y1), (x2, y2), box_color, box_thickness)
+
+                if is_ppe_violation:
+                    lbl = f"NON-COMPLIANT WORKER #{t.track_id}"
+                    if missing_ppe:
+                        lbl += f" (NO {', '.join(missing_ppe).upper()})"
+                else:
+                    lbl = f"{t.class_name} #{t.track_id}"
+
                 cv2.putText(
                     img,
-                    f"{t.class_name} #{t.track_id}",
-                    (x1, max(0, y1 - 10)),
+                    lbl,
+                    (x1, max(14, y1 - 10)),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 255, 255),
-                    1,
+                    0.55,
+                    box_color,
+                    2,
                 )
 
-        cv2.putText(
-            img,
-            f"Event: {event.event_type} | Time: {event.started_at:.2f}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 0, 255),
-            2,
-        )
+        if is_ppe_violation:
+            header_text = f"FORENSIC EVIDENCE: PPE SAFETY VIOLATION | WORKER #{event.track_id}"
+            if missing_ppe:
+                header_text += f" | MISSING: {', '.join(missing_ppe).upper()}"
+            cv2.rectangle(img, (0, 0), (w, 38), (0, 0, 180), -1)
+            cv2.putText(
+                img,
+                header_text,
+                (12, 26),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2,
+            )
+        else:
+            cv2.putText(
+                img,
+                f"Event: {event.event_type} | Time: {event.started_at:.2f}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 0, 255),
+                2,
+            )
 
         file_path = self._evidence_dir / f"ev_{event.event_id}.jpg"
         if not cv2.imwrite(str(file_path), img):

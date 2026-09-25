@@ -98,3 +98,37 @@ def test_events_export_json_authenticated():
             assert item["track_id"] == 10
     finally:
         app.dependency_overrides.clear()
+
+
+def test_events_primary_evidence_endpoint_404_when_no_evidence():
+    fake_user = User(id=uuid4(), email="analyst@example.com", username="analyst", is_active=True)
+    fake_event = Event(
+        id=uuid4(),
+        camera_id=uuid4(),
+        rule_id=uuid4(),
+        event_type="zone_entry",
+        severity=Severity.low,
+        object_class="person",
+        track_id=1,
+        started_at=datetime.now(UTC),
+        ended_at=None,
+        status=EventStatus.active,
+        fingerprint="cam:rule:1:trig",
+        metadata_={},
+    )
+    fake_event.evidences = []
+
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
+
+    try:
+        with (
+            patch("vigilai_api.services.event.EventService.get_event", return_value=fake_event),
+            TestClient(app) as client,
+        ):
+            res = client.get(f"/api/v1/events/{fake_event.id}/evidence")
+            assert res.status_code == 404
+            assert res.json()["detail"] == "No evidence for event"
+    finally:
+        app.dependency_overrides.clear()
+

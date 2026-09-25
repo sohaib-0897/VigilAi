@@ -15,6 +15,7 @@ class RuleType(str, enum.Enum):
     line_crossing = "line_crossing"
     occupancy_threshold = "occupancy_threshold"
     class_presence = "class_presence"
+    ppe_violation = "ppe_violation"
 
 
 class Severity(str, enum.Enum):

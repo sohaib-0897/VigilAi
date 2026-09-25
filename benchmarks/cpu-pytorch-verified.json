@@ -1,5 +1,5 @@
 {
-  "benchmark_timestamp": "2026-09-15T20:59:25.299431+00:00",
+  "benchmark_timestamp": "2026-09-20T16:49:47.493228+00:00",
   "system": {
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.12.9",
@@ -23,15 +23,15 @@
       "image_size": 640,
       "warmup_runs": 10,
       "measured_runs": 50,
-      "fps": 11.24,
-      "mean_latency_ms": 88.95,
-      "p50_latency_ms": 87.32,
-      "p95_latency_ms": 112.54,
-      "min_latency_ms": 70.25,
-      "max_latency_ms": 116.69,
-      "std_latency_ms": 9.84,
+      "fps": 21.83,
+      "mean_latency_ms": 45.81,
+      "p50_latency_ms": 44.83,
+      "p95_latency_ms": 56.42,
+      "min_latency_ms": 40.05,
+      "max_latency_ms": 62.94,
+      "std_latency_ms": 4.53,
       "model_size_mb": 6.25,
-      "cpu_memory_mb": 378.1,
+      "cpu_memory_mb": 379.71,
       "gpu_memory_mb": "NOT_MEASURED"
     }
   }

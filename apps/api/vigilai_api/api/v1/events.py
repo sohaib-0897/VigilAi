@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vigilai_api.core.config import get_settings
-from vigilai_api.core.deps import get_db, require_auth
+from vigilai_api.core.deps import get_db, get_stream_user_or_ticket, require_auth
 from vigilai_api.db.models.event import EventStatus
 from vigilai_api.db.models.user import User
 from vigilai_api.schemas.event import EventListResponse, EventResponse
@@ -150,12 +150,24 @@ async def update_event_status(
     return await service.update_event_status(event_id, status_update.status)
 
 
+@router.get("/{event_id}/evidence")
+async def get_first_evidence_file(
+    event_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_stream_user_or_ticket),
+):
+    event = await EventService(db, current_user.id).get_event(event_id)
+    if not event.evidences:
+        raise HTTPException(status_code=404, detail="No evidence for event")
+    return await get_evidence_file(event_id, event.evidences[0].id, db, current_user)
+
+
 @router.get("/{event_id}/evidence/{evidence_id}/file")
 async def get_evidence_file(
     event_id: UUID,
     evidence_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_auth),
+    current_user: User = Depends(get_stream_user_or_ticket),
 ):
     await EventService(db, current_user.id).get_event(event_id)
     # Retrieve evidence from DB

@@ -153,8 +153,12 @@ def benchmark_onnx(model_path: str, imgsz: int, warmup: int, runs: int) -> dict 
     if onnx_path.suffix != ".onnx":
         onnx_path = onnx_path.with_suffix(".onnx")
     if not onnx_path.exists():
-        print(f"  ONNX model not found: {onnx_path}")
-        return None
+        fallback_path = Path("models") / onnx_path.name
+        if fallback_path.exists():
+            onnx_path = fallback_path
+        else:
+            print(f"  ONNX model not found: {onnx_path}")
+            return None
 
     providers = ort.get_available_providers()
     use_gpu = "CUDAExecutionProvider" in providers

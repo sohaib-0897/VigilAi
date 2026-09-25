@@ -13,6 +13,7 @@ class LocalVideoSource(VideoSource):
         self._cap = None
         self._lock = threading.Lock()
         self._metadata = None
+        self._loop_count = 0
 
     def open(self) -> bool:
         with self._lock:
@@ -41,6 +42,7 @@ class LocalVideoSource(VideoSource):
                     ret, frame = self._cap.read()
                     if not ret:
                         return False, None
+                    self._loop_count += 1
                 else:
                     return False, None
             return True, frame
@@ -68,3 +70,8 @@ class LocalVideoSource(VideoSource):
     @property
     def source_uri(self) -> str:
         return self._file_path
+
+    @property
+    def loop_count(self) -> int:
+        """Number of successful EOF rewinds observed by the reader."""
+        return self._loop_count

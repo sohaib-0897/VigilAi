@@ -4,6 +4,8 @@ FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies (OpenCV needs these)
@@ -26,7 +28,9 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY apps/api/ ./apps/api/
 COPY apps/worker/ ./apps/worker/
-RUN pip install --no-cache-dir .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    PIP_NO_CACHE_DIR=0 pip install --timeout 180 torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    PIP_NO_CACHE_DIR=0 pip install --timeout 180 .
 
 # Copy application code (worker needs both worker and shared api modules)
 COPY apps/ ./apps/

@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vigilai_api.db.models.camera import Camera
+from vigilai_api.db.models.camera import Camera, SourceType
 
 
 class CameraRepository:
@@ -14,6 +14,15 @@ class CameraRepository:
         query = select(Camera).where(Camera.id == camera_id)
         if user_id:
             query = query.where(Camera.user_id == user_id)
+        result = await self.session.execute(query)
+        return result.scalars().first()
+
+    async def get_demo_camera(self, user_id: UUID, source_uri: str) -> Camera | None:
+        query = select(Camera).where(
+            Camera.user_id == user_id,
+            Camera.source_type == SourceType.local_video,
+            Camera.source_uri == source_uri,
+        )
         result = await self.session.execute(query)
         return result.scalars().first()
 

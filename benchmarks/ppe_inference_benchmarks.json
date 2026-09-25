@@ -1,0 +1,64 @@
+{
+  "benchmark_timestamp": "2026-09-20T22:09:44.223568+00:00",
+  "system": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.9",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.6,
+    "gpu": "NOT_AVAILABLE"
+  },
+  "configuration": {
+    "model": "models/vigilai_ppe_v2.pt",
+    "image_size": 512,
+    "device": "cpu",
+    "warmup_runs": 10,
+    "measured_runs": 50
+  },
+  "backends": {
+    "pytorch": {
+      "backend": "pytorch",
+      "model": "models/vigilai_ppe_v2.pt",
+      "device": "cpu",
+      "image_size": 512,
+      "warmup_runs": 10,
+      "measured_runs": 50,
+      "fps": 16.4,
+      "mean_latency_ms": 60.96,
+      "p50_latency_ms": 57.59,
+      "p95_latency_ms": 75.23,
+      "min_latency_ms": 44.99,
+      "max_latency_ms": 163.88,
+      "std_latency_ms": 17.5,
+      "model_size_mb": 5.94,
+      "cpu_memory_mb": 363.88,
+      "gpu_memory_mb": "NOT_MEASURED"
+    },
+    "onnxruntime": {
+      "backend": "onnxruntime",
+      "model": "models\\vigilai_ppe_v2.onnx",
+      "device": "CPU",
+      "providers": [
+        "CPUExecutionProvider"
+      ],
+      "image_size": 512,
+      "warmup_runs": 10,
+      "measured_runs": 50,
+      "fps": 25.59,
+      "mean_latency_ms": 39.08,
+      "p50_latency_ms": 35.24,
+      "p95_latency_ms": 61.25,
+      "min_latency_ms": 27.0,
+      "max_latency_ms": 79.11,
+      "std_latency_ms": 11.99,
+      "model_size_mb": 11.62,
+      "cpu_memory_mb": 440.36,
+      "gpu_memory_mb": "NOT_MEASURED"
+    },
+    "tensorrt": {
+      "backend": "tensorrt",
+      "status": "NOT_AVAILABLE",
+      "reason": "TensorRT not installed"
+    }
+  }
+}

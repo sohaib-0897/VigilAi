@@ -2,13 +2,13 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { use, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Camera, Zone, VirtualLine } from '@/lib/types';
+import { Camera, Zone, VirtualLine, ModelMetadata } from '@/lib/types';
 import { ZoneEditor } from '@/components/cameras/zone-editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SectionHeader } from '@/components/ui/section-header';
-import { Sliders, Plus, Trash2, ArrowLeft, GitCommit, Split } from 'lucide-react';
+import { Sliders, Plus, Trash2, ArrowLeft, GitCommit, Split, Cpu, Check } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ConfigurePage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +16,9 @@ export default function ConfigurePage({ params }: { params: Promise<{ id: string
   const [camera, setCamera] = useState<Camera | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [lines, setLines] = useState<VirtualLine[]>([]);
+  const [models, setModels] = useState<ModelMetadata[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>('coco-yolov8n-onnx');
+  const [modelSuccess, setModelSuccess] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -31,13 +34,30 @@ export default function ConfigurePage({ params }: { params: Promise<{ id: string
     Promise.all([
       api.getCamera(id),
       api.getZones(id),
-      api.getLines(id)
-    ]).then(([cam, z, l]) => {
+      api.getLines(id),
+      api.getModels().catch(() => []),
+    ]).then(([cam, z, l, mList]) => {
       setCamera(cam);
       setZones(z);
       setLines(l);
+      setModels(mList);
+      if (cam.model_id) {
+        setSelectedModelId(cam.model_id);
+      }
     }).catch(console.error).finally(() => setLoading(false));
   }, [id]);
+
+  const handleModelChange = async (newModelId: string) => {
+    try {
+      setSelectedModelId(newModelId);
+      await api.updateCamera(id, { model_id: newModelId });
+      setCamera(prev => prev ? { ...prev, model_id: newModelId } : null);
+      setModelSuccess('Model assigned successfully');
+      setTimeout(() => setModelSuccess(''), 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update camera model');
+    }
+  };
 
   const handleSaveZones = async (newZonesData: any[]) => {
     try {
@@ -154,6 +174,64 @@ export default function ConfigurePage({ params }: { params: Promise<{ id: string
 
         {/* Right 4 Cols: Configuration Inspector */}
         <div className="lg:col-span-4 space-y-6">
+          {/* Neural Vision Model Card */}
+          <Card className="border-4 border-black bg-white shadow-neo-md">
+            <CardHeader className="bg-neo-blue text-black p-3.5 border-b-2 border-black">
+              <CardTitle className="text-xs font-black uppercase tracking-wider text-black flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Cpu className="h-4 w-4" strokeWidth={2.5} />
+                  Neural Vision Model
+                </span>
+                {modelSuccess && (
+                  <span className="text-[10px] bg-neo-green text-black px-1.5 py-0.5 border border-black flex items-center gap-1">
+                    <Check className="h-3 w-3" strokeWidth={3} /> SAVED
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3.5 space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-wider text-black block">
+                  Assigned Pipeline Detector
+                </label>
+                <Select value={selectedModelId} onValueChange={handleModelChange}>
+                  <SelectTrigger className="h-9 text-xs font-mono font-bold bg-white border-2 border-black shadow-[2px_2px_0px_#000000]">
+                    <SelectValue placeholder="Select Neural Model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map(m => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs font-mono">
+                        {m.name} [{m.framework.toUpperCase()}]
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(() => {
+                const current = models.find(m => m.id === selectedModelId);
+                if (!current) return null;
+                return (
+                  <div className="p-2.5 bg-neo-cream border-2 border-black font-mono text-[10px] space-y-1.5 shadow-[2px_2px_0px_#000000]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-black uppercase">TASK:</span>
+                      <span className="px-1.5 py-0.5 bg-black text-white font-black uppercase">{current.task.replace('_', ' ')}</span>
+                    </div>
+                    <div className="text-black/80">{current.description}</div>
+                    <div className="pt-1 border-t border-black/20 flex flex-wrap gap-1">
+                      {current.classes.slice(0, 6).map(c => (
+                        <span key={c} className="bg-white border border-black px-1 text-[9px] uppercase font-bold">{c}</span>
+                      ))}
+                      {current.classes.length > 6 && (
+                        <span className="text-black/60 font-bold">+{current.classes.length - 6} more</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           {/* Active Zones Inspector */}
           <Card className="border-4 border-black bg-white shadow-neo-md">
             <CardHeader className="bg-neo-cream p-3.5 border-b-2 border-black flex flex-row items-center justify-between">

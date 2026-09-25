@@ -6,6 +6,7 @@ from vigilai_api.api.v1 import (
     cameras,
     events,
     lines,
+    models,
     rules,
     streaming,
     system,
@@ -16,6 +17,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(cameras.router, prefix="/cameras", tags=["cameras"])
+api_router.include_router(models.router, prefix="/models", tags=["models"])
 # Nested routers inside cameras.router or separate
 api_router.include_router(zones.router, prefix="/cameras", tags=["zones"])
 api_router.include_router(lines.router, prefix="/cameras", tags=["lines"])

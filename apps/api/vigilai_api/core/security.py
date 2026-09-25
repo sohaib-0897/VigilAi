@@ -70,6 +70,41 @@ def verify_token(token: str, token_type: str = "access") -> TokenPayload | None:
         return None
 
 
+class StreamTicketPayload(BaseModel):
+    sub: str
+    camera_id: str
+    exp: int
+    type: str = "stream_ticket"
+
+
+def create_stream_ticket(user_id: str | Any, camera_id: str | Any, expires_seconds: int = 60) -> str:
+    """Create a short-lived, single-purpose JWT ticket bound to a user and camera."""
+    expire = datetime.now(UTC) + timedelta(seconds=expires_seconds)
+    to_encode = {
+        "exp": expire,
+        "sub": str(user_id),
+        "camera_id": str(camera_id),
+        "type": "stream_ticket",
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+
+
+def verify_stream_ticket(
+    ticket: str, expected_camera_id: str | Any | None = None
+) -> StreamTicketPayload | None:
+    """Verify stream ticket signature, expiry, and camera binding."""
+    try:
+        payload = jwt.decode(ticket, settings.SECRET_KEY, algorithms=["HS256"])
+        ticket_data = StreamTicketPayload(**payload)
+        if ticket_data.type != "stream_ticket":
+            return None
+        if expected_camera_id is not None and str(ticket_data.camera_id) != str(expected_camera_id):
+            return None
+        return ticket_data
+    except (JWTError, ValueError):
+        return None
+
+
 def encrypt_string(plaintext: str) -> str:
     """Encrypt sensitive string like RTSP credentials."""
     if _fernet is None:

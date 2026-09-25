@@ -20,6 +20,24 @@ Zones and virtual lines are persisted in normalized `[0, 1]` coordinates. Analyt
 
 Rules evaluate analytics state. Event management applies fingerprints, active state, and cooldown semantics. The worker persists resulting events and evidence metadata, writes annotated JPEG snapshots, and publishes notifications.
 
+## Model Registry and Shared Detector Cache
+
+Cameras select their neural vision model dynamically via the `cameras.model_id` field (e.g., standard `coco-yolov8n` vs specialized `vigilai-ppe-v2`). The model registry (`vigilai_api/core/models_registry.py`) defines model metadata, input dimensions, task profiles, and sanitizes sensitive local filesystem weights paths before exposing public REST schemas (`GET /api/v1/models`).
+
+To prevent memory bloat and duplicate thread pool overhead when multiple cameras share the same model, the CV worker (`CameraManager`) maintains a thread-safe singleton detector cache. Both `ONNXDetector` and `YOLODetector` wrap their native inference calls with threading locks, ensuring deterministic concurrent execution across camera threads sharing identical ONNX sessions or PyTorch models.
+
+## Person-Centric Tracking & PPE Safety Compliance
+
+When operating specialized models such as `vigilai-ppe-v2`, detections contain both human subjects and equipment classes (`helmet`, `vest`, `boots`, `gloves`, `goggles`). 
+
+1. **Tracking Isolation:** ByteTrack multi-object tracking is strictly isolated to human subjects (`person`). Non-human equipment items are never assigned independent Kalman filter trajectories, avoiding track ID fragmentation and Kalman filter divergence.
+2. **Competitive Anatomical Association:** Frame-level equipment detections are associated to human bounding boxes using geometric containment, horizontal centering penalties, and biological prior regions (head $y \in [0.0, 0.35]$ for helmets/goggles, torso $y \in [0.15, 0.75]$ for safety vests, feet $y \in [0.65, 1.0]$ for work boots). A greedy bipartite assignment ensures no single equipment detection is double-counted across neighboring workers.
+3. **Temporal Compliance Smoothing:** Raw frame detections are processed through a persistent rolling window state machine (`TrackPPEHistory`). To eliminate transient flicker caused by motion blur or occlusions, violation confirmation requires:
+   - A rolling observation window (default 10 frames).
+   - A conservative positive detection ratio ($\ge 0.35$) confirming equipment presence.
+   - A minimum temporal persistence threshold (default $\ge 2.0$ seconds) before elevating an unequipped worker to `VIOLATION_CONFIRMED`.
+4. **Auto-Resolution:** Active PPE violation events automatically transition to resolved state when the worker equips the required gear or departs the monitored zone. Evidence snapshots capture the worker bounding box, body-part regions, and associated equipment overlays.
+
 ## Browser delivery
 
 - REST serves configuration, historical events, and analytics.

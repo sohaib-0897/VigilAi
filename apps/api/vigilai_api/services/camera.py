@@ -22,6 +22,21 @@ class CameraService:
                 raise ValidationError(str(exc)) from exc
         return await self.repo.create(user_id, **data)
 
+    async def get_or_create_demo_camera(self, user_id: UUID, source_uri: str) -> Camera:
+        camera = await self.repo.get_demo_camera(user_id, source_uri)
+        if camera:
+            return camera
+        return await self.repo.create(
+            user_id,
+            name="VigilAI Demo — Surveillance Feed",
+            description="Bundled local video processed through the standard VigilAI pipeline.",
+            source_type="local_video",
+            source_uri=source_uri,
+            model_id="coco-yolov8n-onnx",
+            enabled=True,
+            analytics_enabled=False,
+        )
+
     async def get_camera(self, camera_id: UUID, user_id: UUID) -> Camera:
         camera = await self.repo.get_by_id(camera_id, user_id)
         if not camera:

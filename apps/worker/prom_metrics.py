@@ -1,5 +1,5 @@
 try:
-    from prometheus_client import Counter, Gauge, Histogram
+    from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
     FRAMES_RECEIVED = Counter(
         "vigilai_frames_received_total", "Total frames received", ["camera_id"]
@@ -22,3 +22,4 @@ try:
     PROM_AVAILABLE = True
 except ImportError:
     PROM_AVAILABLE = False
+    start_http_server = None

@@ -111,3 +111,12 @@ class EventManager:
     def reset(self) -> None:
         self._active_events.clear()
         self._cooldowns.clear()
+
+    def end_all_events(self, timestamp: float) -> list[EventRecord]:
+        """Resolve every active event when a video replay ends its current pass."""
+        ended = list(self._active_events.values())
+        for event in ended:
+            event.status = "resolved"
+            event.ended_at = timestamp
+        self.reset()
+        return ended

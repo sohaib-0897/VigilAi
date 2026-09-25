@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUpRight, Crosshair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ConsoleLink } from './console-link';
+import { DemoLink } from './demo-link';
 import styles from './landing.module.css';
 
 function TrackingSchematic() {
@@ -63,7 +64,7 @@ export function Hero() {
             <h1 id="hero-heading">VIGIL<span>AI</span><span className={styles.wordmarkDot} aria-hidden="true">.</span></h1>
             <h2>VIDEO IN.<br /><span className={styles.headlineHighlight}>EVENTS OUT.</span></h2>
             <p>Track objects. Define space. Detect what matters. Turn live or recorded video into persistent identities, spatial analytics, configurable alerts, and evidence you can investigate.</p>
-            <div className={styles.heroActions}><ConsoleLink /><Button asChild variant="outline" size="lg"><a href="#system">Explore the system<ArrowDown size={17} className="ml-2" aria-hidden="true" /></a></Button></div>
+            <div className={styles.heroActions}><ConsoleLink /><DemoLink /><Button asChild variant="outline" size="lg"><a href="#system">Explore the system<ArrowDown size={17} className="ml-2" aria-hidden="true" /></a></Button></div>
             <div className={styles.heroSources}><span aria-hidden="true">↳</span> LOCAL VIDEO / WEBCAM / RTSP</div>
           </div>
           <TrackingSchematic />

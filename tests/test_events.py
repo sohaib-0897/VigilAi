@@ -75,3 +75,16 @@ class TestEventManager:
         resolved_list = manager.check_expired_events(set([2]), 110.0)
         assert len(resolved_list) == 1
         assert resolved_list[0].status == "resolved"
+
+    def test_replay_boundary_resolves_untracked_and_tracked_events(self, sample_match):
+        manager = EventManager("cam1")
+        manager.process_rule_match(sample_match)
+        sample_match.track_id = None
+        sample_match.timestamp += 1
+        manager.process_rule_match(sample_match)
+
+        ended = manager.end_all_events(120.0)
+
+        assert len(ended) == 2
+        assert all(event.status == "resolved" and event.ended_at == 120.0 for event in ended)
+        assert manager.get_active_events() == []

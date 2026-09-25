@@ -43,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--resume", action="store_true", help="Resume training from last checkpoint"
     )
+    parser.add_argument("--cache", action="store_true", default=False, help="Cache images in RAM for faster training")
     parser.add_argument("--dry-run", action="store_true", help="Validate config without training")
     return parser.parse_args()
 
@@ -55,13 +56,16 @@ def validate_dataset(data_path: str) -> dict:
     if not data_file.exists():
         raise FileNotFoundError(f"Dataset config not found: {data_path}")
 
-    with open(data_file) as f:
+    with open(data_file, encoding="utf-8") as f:
         data_config = yaml.safe_load(f)
 
-    required_keys = ["train", "val", "nc", "names"]
+    required_keys = ["train", "val", "names"]
     for key in required_keys:
         if key not in data_config:
             raise ValueError(f"Missing required key in data.yaml: {key}")
+
+    if "nc" not in data_config:
+        data_config["nc"] = len(data_config["names"])
 
     print(f"Dataset: {data_file}")
     print(f"  Classes ({data_config['nc']}): {data_config['names']}")
@@ -120,6 +124,8 @@ def train(args: argparse.Namespace) -> dict:
     model = YOLO(args.model)
     start_time = time.time()
 
+    project_dir = str(Path(args.project).resolve())
+
     # Train
     results = model.train(
         data=args.data,
@@ -127,13 +133,14 @@ def train(args: argparse.Namespace) -> dict:
         imgsz=args.imgsz,
         batch=args.batch,
         device=args.device or None,
-        project=args.project,
+        project=project_dir,
         name=experiment_name,
         patience=args.patience,
         lr0=args.lr0,
         workers=args.workers,
         augment=args.augment,
         resume=args.resume,
+        cache=args.cache,
         exist_ok=True,
         verbose=True,
         save=True,
@@ -169,7 +176,8 @@ def train(args: argparse.Namespace) -> dict:
         metrics["metrics"] = "NOT_MEASURED"
 
     # Save training report
-    output_dir = Path(args.project) / experiment_name
+    output_dir = Path(getattr(results, "save_dir", Path(project_dir) / experiment_name))
+    output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "training_report.json"
     with open(report_path, "w") as f:
         json.dump(metrics, f, indent=2, default=str)

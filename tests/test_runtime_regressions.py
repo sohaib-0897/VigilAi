@@ -47,7 +47,7 @@ def test_frame_buffer_bounded_drops_oldest():
     for t in range(10):
         buffer.put(frame, t)
     assert buffer.stats["frames_dropped"] == 8
-    assert buffer.get()[1] == 8
+    assert buffer.get()[1:] == (8, 0)
     with pytest.raises(ValueError):
         FrameBuffer(0)
 

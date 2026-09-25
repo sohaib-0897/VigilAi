@@ -105,6 +105,36 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
         }
       />
 
+      {/* PPE Safety Violation Alert Banner */}
+      {(event.event_type === 'ppe_violation' || event.metadata?.missing_ppe) && (
+        <div className="border-4 border-black bg-neo-red p-4 sm:p-5 text-white shadow-neo-md space-y-2">
+          <div className="flex items-center gap-2 font-mono text-xs font-black uppercase tracking-wider text-neo-yellow">
+            <ShieldAlert className="h-5 w-5" strokeWidth={2.5} />
+            PPE SAFETY COMPLIANCE VIOLATION CONFIRMED
+          </div>
+          <div className="font-mono text-sm sm:text-base font-bold">
+            Required Safety Gear Not Detected: <span className="underline uppercase tracking-wide text-neo-yellow">{((event.metadata?.missing_ppe as string[]) || []).join(', ') || 'REQUIRED PPE'}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-white/90 pt-1 border-t border-white/30">
+            {event.metadata?.observed_ppe && (
+              <div>
+                <span className="font-bold">OBSERVED PPE:</span>{' '}
+                {((event.metadata?.observed_ppe as string[]) || []).join(', ') || 'None'}
+              </div>
+            )}
+            {event.metadata?.confirmation_duration_ms && (
+              <div>
+                <span className="font-bold">CONFIRMATION DURATION:</span>{' '}
+                {(event.metadata.confirmation_duration_ms / 1000).toFixed(1)}s
+              </div>
+            )}
+            <div>
+              <span className="font-bold">MODEL VERSION:</span> {event.metadata?.model_version || 'vigilai_ppe_v2'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Two Columns: Information Breakdown + Structured Metadata */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-6 border-4 border-black bg-white shadow-neo-md">
@@ -189,12 +219,9 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 <div key={evItem.id} className="border-2 border-black bg-white shadow-neo-sm overflow-hidden flex flex-col">
                   <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
                     <img
-                      src={`/api/v1/events/${event.id}/evidence`}
+                      src={`/api/v1/events/${event.id}/evidence/${evItem.id}/file`}
                       alt="Annotated Forensic Snapshot"
                       className="object-contain w-full h-full"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `/api/v1/events/${event.id}/evidence/${evItem.id}/file`;
-                      }}
                     />
                   </div>
                   <div className="p-2.5 bg-neo-cream border-t-2 border-black font-mono text-[10px] font-black uppercase flex items-center justify-between">

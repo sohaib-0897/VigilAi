@@ -14,20 +14,20 @@ class FrameBuffer:
         self._frames_received = 0
         self._frames_dropped = 0
 
-    def put(self, frame: np.ndarray, timestamp: float) -> None:
+    def put(self, frame: np.ndarray, timestamp: float, loop_count: int = 0) -> None:
         """Add frame. If full, drop oldest and add new."""
         self._frames_received += 1
         try:
-            self._queue.put_nowait((frame, timestamp))
+            self._queue.put_nowait((frame, timestamp, loop_count))
         except queue.Full:
             try:
                 self._queue.get_nowait()
                 self._frames_dropped += 1
-                self._queue.put_nowait((frame, timestamp))
+                self._queue.put_nowait((frame, timestamp, loop_count))
             except (queue.Empty, queue.Full):
                 pass
 
-    def get(self, timeout: float = 1.0) -> tuple[np.ndarray, float] | None:
+    def get(self, timeout: float = 1.0) -> tuple[np.ndarray, float, int] | None:
         """Get next frame with timestamp."""
         try:
             return self._queue.get(timeout=timeout)

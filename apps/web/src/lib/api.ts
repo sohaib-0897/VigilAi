@@ -1,4 +1,4 @@
-import { PaginatedResponse, OverviewStats, Event, Camera, Zone, VirtualLine, AnalyticsRule, User } from './types';
+import { PaginatedResponse, OverviewStats, Event, Camera, Zone, VirtualLine, AnalyticsRule, User, ModelMetadata } from './types';
 
 const API_BASE = '/api/v1';
 
@@ -25,7 +25,17 @@ class ApiClient {
     }
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-      throw new ApiError(res.status, error.detail || error.error || 'Request failed');
+      let message = 'Request failed';
+      if (typeof error.detail === 'string') {
+        message = error.detail;
+      } else if (Array.isArray(error.detail)) {
+        message = error.detail.map((d: any) => d.msg || (typeof d === 'string' ? d : JSON.stringify(d))).join('; ');
+      } else if (error.detail && typeof error.detail === 'object') {
+        message = JSON.stringify(error.detail);
+      } else if (error.error) {
+        message = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+      }
+      throw new ApiError(res.status, message);
     }
     if (res.status === 204) return {} as T;
     return res.json();
@@ -39,6 +49,7 @@ class ApiClient {
 
   async getCameras(page = 1, pageSize = 100): Promise<PaginatedResponse<Camera>> { return this.request(`/cameras?page=${page}&page_size=${pageSize}`); }
   async getCamera(id: string): Promise<Camera> { return this.request(`/cameras/${id}`); }
+  async createDemoCamera(): Promise<Camera> { return this.request('/cameras/demo', { method: 'POST' }); }
   async createCamera(data: Partial<Camera>): Promise<Camera> { return this.request('/cameras', { method: 'POST', body: JSON.stringify(data) }); }
   async updateCamera(id: string, data: Partial<Camera>): Promise<Camera> { return this.request(`/cameras/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
   async deleteCamera(id: string) { return this.request(`/cameras/${id}`, { method: 'DELETE' }); }
@@ -98,6 +109,8 @@ class ApiClient {
 
   async getHealth(): Promise<any> { return this.request('/system/health'); }
   async getMetrics(): Promise<any> { return this.request('/system/metrics'); }
+  async getModels(): Promise<ModelMetadata[]> { return this.request('/models'); }
+  async getModel(id: string): Promise<ModelMetadata> { return this.request(`/models/${id}`); }
 }
 
 export const api = new ApiClient();

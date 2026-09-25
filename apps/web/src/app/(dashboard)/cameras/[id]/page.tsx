@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SectionHeader } from '@/components/ui/section-header';
 import Link from 'next/link';
-import { useWebSocket } from '@/lib/hooks';
+import { useCameraStatus } from '@/lib/hooks';
 import { Upload, Loader2, Play, Square, Sliders, Video, Activity, AlertTriangle, Pause, Maximize2 } from 'lucide-react';
 
 export default function CameraDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -23,8 +23,7 @@ export default function CameraDetail({ params }: { params: Promise<{ id: string 
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const monitorRef = useRef<HTMLDivElement>(null);
 
-  const url = typeof window === 'undefined' ? '' : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/cameras/${id}/status`;
-  const { lastMessage } = useWebSocket(url);
+  const { lastMessage } = useCameraStatus(id);
 
   useEffect(() => {
     if (lastMessage) {

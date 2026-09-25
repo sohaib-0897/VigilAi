@@ -1,0 +1,195 @@
+{
+  "dataset_name": "Ultralytics Construction-PPE",
+  "dataset_source": "https://github.com/ultralytics/assets/releases/download/v0.0.0/construction-ppe.zip",
+  "license": "GNU Affero General Public License v3.0 (AGPL-3.0)",
+  "classes": {
+    "0": "helmet",
+    "1": "gloves",
+    "2": "vest",
+    "3": "boots",
+    "4": "goggles",
+    "5": "none",
+    "6": "Person",
+    "7": "no_helmet",
+    "8": "no_goggle",
+    "9": "no_gloves",
+    "10": "no_boots"
+  },
+  "summary": {
+    "total_images": 1416,
+    "total_labels": 1426,
+    "total_annotated_instances": 11521,
+    "corrupt_images_count": 0,
+    "invalid_labels_count": 0,
+    "unlabeled_images_count": 0,
+    "empty_label_files_count": 0,
+    "cross_split_leakage_pairs_count": 0,
+    "final_usable_images": 1416
+  },
+  "per_class_distribution_overall": {
+    "helmet": {
+      "class_id": 0,
+      "instance_count": 1734,
+      "image_count": 1047,
+      "instance_percentage": 15.05
+    },
+    "gloves": {
+      "class_id": 1,
+      "instance_count": 1445,
+      "image_count": 705,
+      "instance_percentage": 12.54
+    },
+    "vest": {
+      "class_id": 2,
+      "instance_count": 1618,
+      "image_count": 1048,
+      "instance_percentage": 14.04
+    },
+    "boots": {
+      "class_id": 3,
+      "instance_count": 1597,
+      "image_count": 669,
+      "instance_percentage": 13.86
+    },
+    "goggles": {
+      "class_id": 4,
+      "instance_count": 518,
+      "image_count": 480,
+      "instance_percentage": 4.5
+    },
+    "none": {
+      "class_id": 5,
+      "instance_count": 797,
+      "image_count": 425,
+      "instance_percentage": 6.92
+    },
+    "Person": {
+      "class_id": 6,
+      "instance_count": 2245,
+      "image_count": 1339,
+      "instance_percentage": 19.49
+    },
+    "no_helmet": {
+      "class_id": 7,
+      "instance_count": 485,
+      "image_count": 283,
+      "instance_percentage": 4.21
+    },
+    "no_goggle": {
+      "class_id": 8,
+      "instance_count": 411,
+      "image_count": 265,
+      "instance_percentage": 3.57
+    },
+    "no_gloves": {
+      "class_id": 9,
+      "instance_count": 556,
+      "image_count": 236,
+      "instance_percentage": 4.83
+    },
+    "no_boots": {
+      "class_id": 10,
+      "instance_count": 115,
+      "image_count": 36,
+      "instance_percentage": 1.0
+    }
+  },
+  "split_breakdown": {
+    "train": {
+      "images_count": 1132,
+      "labels_count": 1142,
+      "instances_count": 9098,
+      "per_class_instances": {
+        "helmet": 1341,
+        "gloves": 1146,
+        "vest": 1269,
+        "boots": 1235,
+        "goggles": 419,
+        "none": 651,
+        "Person": 1770,
+        "no_helmet": 400,
+        "no_goggle": 337,
+        "no_gloves": 442,
+        "no_boots": 88
+      },
+      "per_class_images": {
+        "helmet": 830,
+        "gloves": 562,
+        "vest": 828,
+        "boots": 530,
+        "goggles": 385,
+        "none": 347,
+        "Person": 1067,
+        "no_helmet": 232,
+        "no_goggle": 216,
+        "no_gloves": 190,
+        "no_boots": 28
+      }
+    },
+    "val": {
+      "images_count": 143,
+      "labels_count": 143,
+      "instances_count": 1172,
+      "per_class_instances": {
+        "helmet": 201,
+        "gloves": 136,
+        "vest": 171,
+        "boots": 151,
+        "goggles": 47,
+        "none": 81,
+        "Person": 239,
+        "no_helmet": 45,
+        "no_goggle": 41,
+        "no_gloves": 56,
+        "no_boots": 4
+      },
+      "per_class_images": {
+        "helmet": 107,
+        "gloves": 68,
+        "vest": 109,
+        "boots": 64,
+        "goggles": 44,
+        "none": 43,
+        "Person": 139,
+        "no_helmet": 27,
+        "no_goggle": 25,
+        "no_gloves": 23,
+        "no_boots": 2
+      }
+    },
+    "test": {
+      "images_count": 141,
+      "labels_count": 141,
+      "instances_count": 1251,
+      "per_class_instances": {
+        "helmet": 192,
+        "gloves": 163,
+        "vest": 178,
+        "boots": 211,
+        "goggles": 52,
+        "none": 65,
+        "Person": 236,
+        "no_helmet": 40,
+        "no_goggle": 33,
+        "no_gloves": 58,
+        "no_boots": 23
+      },
+      "per_class_images": {
+        "helmet": 110,
+        "gloves": 75,
+        "vest": 111,
+        "boots": 75,
+        "goggles": 51,
+        "none": 35,
+        "Person": 133,
+        "no_helmet": 24,
+        "no_goggle": 24,
+        "no_gloves": 23,
+        "no_boots": 6
+      }
+    }
+  },
+  "corrupt_files": [],
+  "invalid_labels": [],
+  "leakage_records": []
+}

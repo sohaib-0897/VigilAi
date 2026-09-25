@@ -3,7 +3,7 @@ VigilAI — Turnkey Evaluator Demo Setup Script
 
 Provisions a complete, out-of-the-box working environment:
 1. Operator user: admin@vigilai.local / vigilai_dev_2024
-2. Realistic surveillance test video: uploads/demo_feed.mp4 (generated or preserved)
+2. Realistic surveillance test video: assets/demo/demo_feed.mp4 (bundled and preserved)
 3. Camera surveillance node: 'Main Entrance & Loading Dock'
 4. Configured spatial zones: 'Restricted Loading Bay' and 'Pedestrian Walkway'
 5. Configured virtual tripwire: 'Entry Gate Tripwire'
@@ -43,7 +43,7 @@ logger = logging.getLogger("demo_setup")
 DEV_EMAIL = "admin@vigilai.local"
 DEV_USERNAME = "admin"
 DEV_PASSWORD = "vigilai_dev_2024"
-DEMO_VIDEO_REL_PATH = "uploads/demo_feed.mp4"
+DEMO_VIDEO_REL_PATH = "assets/demo/demo_feed.mp4"
 
 
 def generate_synthetic_surveillance_video(output_path: Path, num_frames: int = 150) -> Path:

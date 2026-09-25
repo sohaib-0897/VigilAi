@@ -295,6 +295,8 @@
   .heroCopy > p { font-size: 14px; }
   .heroActions { gap: 14px; flex-direction: column; }
   .heroActions > a { width: 100%; }
+  .heroActions > span { width: 100%; }
+  .heroActions > span > button { width: 100%; }
   .heroSources { margin-top: 14px; }
   .trackingFigure { width: calc(100% - 12px); transform: rotate(1deg); box-shadow: 4px 4px 0 #000; margin-right: 0; }
   .figureToolbar { padding: 10px; font-size: 9px; }

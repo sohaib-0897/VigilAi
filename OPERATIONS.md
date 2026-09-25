@@ -21,6 +21,7 @@ For Docker-only setup, these commands can run using `docker compose run --rm --n
 | `SECRET_KEY`, `ENCRYPTION_KEY` | Signing and RTSP encryption keys |
 | `YOLO_MODEL_PATH`, `YOLO_DEVICE` | Model path and inference device; CPU is the default |
 | `EVIDENCE_DIR`, `UPLOAD_DIR` | Local storage paths; Compose mounts shared named volumes |
+| `DEMO_VIDEO_PATH` | Server-controlled bundled demo path; Compose mounts `assets/demo` read-only at `/app/data/demo` for API and worker |
 | `MAX_CAMERAS_PER_WORKER`, `FRAME_QUEUE_SIZE` | Worker capacity and bounded queue size |
 | `CORS_ORIGINS` | Local application's permitted browser origins; Compose currently sets localhost:3000 |
 
@@ -32,7 +33,18 @@ docker compose ps
 docker compose logs --tail 100 api worker
 ```
 
-The API Docker entrypoint runs `alembic upgrade head`. Register an account through `/register`; the optional `scripts/seed.py` creates a publicly documented development account and must not be used for a public deployment.
+The API Docker entrypoint runs `alembic upgrade head`. Register an account through `/register`; the bundled demo video is tracked directly in Git at `assets/demo/demo_feed.mp4` (about 203 KB), so no Git LFS or deployment-time download is required. The API and worker both see it at `/app/data/demo/demo_feed.mp4` through a shared read-only bind mount.
+
+## Bundled Demo
+
+After deployment:
+
+1. Register an account and sign in.
+2. Select **USE DEMO VIDEO** in Cameras (or **TRY THE DEMO** on the public landing page).
+3. Start analytics for the created camera.
+4. Open the live monitor.
+
+The authenticated `POST /api/v1/cameras/demo` endpoint creates or returns the signed-in user's normal local-video camera. It selects the bundled file server-side and requires no uploaded path. Processing runs through the standard worker and camera model. No detections, events, analytics, or evidence are pre-seeded. Local video sources currently replay on EOF; the worker resets tracking, temporal analytics, PPE, and active event state at each replay boundary and resolves active events before starting the next pass.
 
 ## Migrations
 

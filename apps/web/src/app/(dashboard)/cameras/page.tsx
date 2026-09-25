@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CameraCard } from '@/components/cameras/camera-card';
 import { SectionHeader } from '@/components/ui/section-header';
-import { Video, Plus, Upload, Radio, AlertTriangle } from 'lucide-react';
+import { Video, Plus, Upload, Radio, AlertTriangle, Play } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function CamerasPage() {
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -24,6 +25,8 @@ export default function CamerasPage() {
     source_uri: ''
   });
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [openingDemo, setOpeningDemo] = useState(false);
+  const router = useRouter();
 
   const fetchCameras = () => {
     setLoading(true);
@@ -47,6 +50,18 @@ export default function CamerasPage() {
       fetchCameras();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not change analytics state');
+    }
+  };
+
+  const handleUseDemo = async () => {
+    setError(null);
+    setOpeningDemo(true);
+    try {
+      const camera = await api.createDemoCamera();
+      router.push(`/cameras/${camera.id}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not open the demo video');
+      setOpeningDemo(false);
     }
   };
 
@@ -92,6 +107,11 @@ export default function CamerasPage() {
         title="Camera Nodes"
         description="Configure video ingress sources, monitor live FPS telemetry, and toggle inference pipeline processing."
         action={
+          <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="violet" size="default" className="font-black text-xs" onClick={handleUseDemo} disabled={openingDemo}>
+            <Play className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            {openingDemo ? 'Opening demo…' : 'Use Demo Video'}
+          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" size="default" className="font-black text-xs">
@@ -217,6 +237,7 @@ export default function CamerasPage() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
 

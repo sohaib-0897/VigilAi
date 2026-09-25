@@ -6,9 +6,9 @@ from uuid import UUID
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from vigilai_api.core.security import decrypt_string
+from vigilai_api.db.models.camera import Camera, CameraStatus
 from vigilai_api.db.models import (
     AnalyticsRule,
-    Camera,
     CameraSession,
     Event,
     Evidence,
@@ -44,6 +44,7 @@ def load_camera(camera_id: str) -> dict[str, Any]:
             "fps": camera.fps,
             "width": camera.width,
             "height": camera.height,
+            "model_id": getattr(camera, "model_id", "coco-yolov8n-onnx") or "coco-yolov8n-onnx",
         }
 
 
@@ -150,10 +151,14 @@ def save_evidence(evidence_data: dict[str, Any]) -> str:
 
 def update_camera_status(camera_id: str, status: str, message: str = "") -> None:
     with SessionLocal() as session:
-        camera = session.query(Camera).filter(Camera.id == camera_id).first()
+        cid = UUID(str(camera_id))
+        camera = session.get(Camera, cid)
         if camera:
-            camera.status = status
-            if message:
+            try:
+                camera.status = CameraStatus(status)
+            except Exception:
+                camera.status = status
+            if message is not None:
                 camera.status_message = message
             session.commit()
 

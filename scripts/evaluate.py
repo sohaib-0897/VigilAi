@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", type=str, default="", help="Device")
     parser.add_argument("--split", type=str, default="val", help="Dataset split: val or test")
     parser.add_argument("--output", type=str, default="benchmarks", help="Output directory")
+    parser.add_argument("--output-file", type=str, default="", help="Custom output JSON file path")
     return parser.parse_args()
 
 
@@ -59,6 +60,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         batch=args.batch,
         device=args.device or None,
         split=args.split,
+        plots=True,
         verbose=True,
     )
 
@@ -83,18 +85,41 @@ def evaluate(args: argparse.Namespace) -> dict:
         report["metrics"] = "NOT_MEASURED"
 
     # Per-class metrics if available
-    if hasattr(results, "maps") and results.maps is not None:
-        class_names = model.names if hasattr(model, "names") else {}
-        per_class = {}
+    class_names = model.names if hasattr(model, "names") else {}
+    per_class = {}
+    if hasattr(results, "box") and results.box is not None:
+        b = results.box
+        ap50_vals = getattr(b, "ap50", None)
+        ap_vals = getattr(b, "ap", None)
+        p_vals = getattr(b, "p", None)
+        r_vals = getattr(b, "r", None)
+        f1_vals = getattr(b, "f1", None)
+        for i, name in class_names.items():
+            entry = {}
+            if ap50_vals is not None and i < len(ap50_vals):
+                entry["mAP50"] = round(float(ap50_vals[i]), 4)
+            if ap_vals is not None and i < len(ap_vals):
+                entry["mAP50_95"] = round(float(ap_vals[i]), 4)
+            if p_vals is not None and i < len(p_vals):
+                entry["precision"] = round(float(p_vals[i]), 4)
+            if r_vals is not None and i < len(r_vals):
+                entry["recall"] = round(float(r_vals[i]), 4)
+            per_class[name] = entry
+    elif hasattr(results, "maps") and results.maps is not None:
         for i, m in enumerate(results.maps):
             class_name = class_names.get(i, f"class_{i}")
-            per_class[class_name] = round(float(m), 4)
-        report["per_class_mAP50_95"] = per_class
+            per_class[class_name] = {"mAP50_95": round(float(m), 4)}
+    report["per_class_metrics"] = per_class
 
     # Save report
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    report_path = output_dir / "evaluation_results.json"
+    if args.output_file:
+        report_path = Path(args.output_file)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = Path(args.output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_path = output_dir / "evaluation_results.json"
+
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
 

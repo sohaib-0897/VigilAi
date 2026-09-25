@@ -13,6 +13,7 @@ class CameraBase(BaseModel):
     source_type: SourceType
     source_uri: str
     enabled: bool = True
+    model_id: str | None = "coco-yolov8n-onnx"
 
 
 class CameraCreate(CameraBase):
@@ -26,6 +27,7 @@ class CameraUpdate(BaseModel):
     source_uri: str | None = None
     enabled: bool | None = None
     analytics_enabled: bool | None = None
+    model_id: str | None = None
 
 
 class CameraResponse(CameraBase):
@@ -37,6 +39,7 @@ class CameraResponse(CameraBase):
     width: int | None
     height: int | None
     fps: int | None
+    model_id: str | None = "coco-yolov8n-onnx"
     created_at: datetime
     updated_at: datetime
 

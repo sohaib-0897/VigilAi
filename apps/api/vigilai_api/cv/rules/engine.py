@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from ..analytics.dwell_analytics import DwellAlert
 from ..analytics.line_analytics import LineCrossEvent
@@ -162,4 +163,36 @@ class RulesEngine:
                                 t,
                             )
                         )
+        return matches
+
+    def evaluate_ppe_alert(self, alert: Any) -> list[RuleMatch]:
+        matches = []
+        for r in self._rules:
+            if not r.enabled or r.rule_type != "ppe_violation":
+                continue
+            if r.rule_id == alert.rule_id or (
+                not alert.rule_id and (r.zone_id is None or r.zone_id == alert.zone_id)
+            ):
+                details = (
+                    alert.to_event_details()
+                    if hasattr(alert, "to_event_details")
+                    else {
+                        "track_id": alert.track_id,
+                        "zone_id": alert.zone_id,
+                        "missing_ppe": getattr(alert, "missing_ppe", []),
+                        "observed_ppe": getattr(alert, "observed_ppe", []),
+                    }
+                )
+                matches.append(
+                    RuleMatch(
+                        rule=r,
+                        event_type="ppe_violation",
+                        track_id=alert.track_id,
+                        object_class="person",
+                        zone_id=alert.zone_id,
+                        line_id=None,
+                        details=details,
+                        timestamp=alert.timestamp,
+                    )
+                )
         return matches

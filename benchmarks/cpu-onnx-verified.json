@@ -1,5 +1,5 @@
 {
-  "benchmark_timestamp": "2026-09-15T21:01:58.450818+00:00",
+  "benchmark_timestamp": "2026-09-20T16:49:31.634964+00:00",
   "system": {
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.12.9",
@@ -9,7 +9,7 @@
     "gpu": "NOT_AVAILABLE"
   },
   "configuration": {
-    "model": "models/yolov8n.onnx",
+    "model": "yolov8n.pt",
     "image_size": 640,
     "device": "cpu",
     "warmup_runs": 10,
@@ -26,15 +26,15 @@
       "image_size": 640,
       "warmup_runs": 10,
       "measured_runs": 50,
-      "fps": 20.5,
-      "mean_latency_ms": 48.79,
-      "p50_latency_ms": 47.75,
-      "p95_latency_ms": 57.02,
-      "min_latency_ms": 43.96,
-      "max_latency_ms": 63.75,
-      "std_latency_ms": 4.18,
+      "fps": 34.14,
+      "mean_latency_ms": 29.29,
+      "p50_latency_ms": 27.66,
+      "p95_latency_ms": 35.71,
+      "min_latency_ms": 25.52,
+      "max_latency_ms": 38.57,
+      "std_latency_ms": 3.52,
       "model_size_mb": 12.23,
-      "cpu_memory_mb": 289.92,
+      "cpu_memory_mb": 294.65,
       "gpu_memory_mb": "NOT_MEASURED"
     }
   }

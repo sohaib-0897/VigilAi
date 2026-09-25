@@ -10,13 +10,74 @@ logger = logging.getLogger(__name__)
 
 
 class CameraManager:
-    """Manages multiple camera pipelines."""
+    """Manages multiple camera pipelines with per-camera model selection and detector caching."""
 
     def __init__(self, detector, redis_client: redis.Redis, config: Any):
         self._pipelines: dict[str, CameraPipeline] = {}
-        self._detector = detector
+        self._default_detector = detector
+        self._detector_cache: dict[str, Any] = {}
+        if detector is not None:
+            self._detector_cache["default"] = detector
         self._redis = redis_client
         self._config = config
+
+    def get_detector(self, model_id: str | None) -> Any:
+        """Resolve and cache detector instance for a specific model ID."""
+        if not model_id and self._default_detector:
+            return self._default_detector
+
+        from vigilai_api.core.models_registry import get_model_metadata
+
+        meta = get_model_metadata(model_id)
+        if meta.id in self._detector_cache:
+            return self._detector_cache[meta.id]
+
+        logger.info(f"Loading detector for model: {meta.id} ({meta.name})")
+        detector = None
+
+        if meta.framework == "onnxruntime":
+            try:
+                from vigilai_api.cv.detection.onnx_detector import ONNXDetector
+
+                detector = ONNXDetector(
+                    model_path=meta.weights_path,
+                    device=getattr(self._config, "model_device", "cpu"),
+                )
+                detector.conf = getattr(self._config, "model_confidence", 0.25)
+                detector.iou = getattr(self._config, "model_iou", 0.45)
+                detector.img_size = meta.img_size
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load ONNX detector for {meta.id}: {e}. Trying PyTorch fallback if available."
+                )
+                if meta.task == "ppe_safety":
+                    try:
+                        from vigilai_api.cv.detection.yolo import YOLODetector
+
+                        detector = YOLODetector(
+                            model_path="models/vigilai_ppe_v2.pt",
+                            device=getattr(self._config, "model_device", "cpu"),
+                        )
+                        detector.conf = getattr(self._config, "model_confidence", 0.25)
+                        detector.iou = getattr(self._config, "model_iou", 0.45)
+                        detector.img_size = meta.img_size
+                    except Exception as fallback_e:
+                        logger.error(f"PyTorch fallback also failed: {fallback_e}")
+                        raise
+
+        if detector is None:
+            from vigilai_api.cv.detection.yolo import YOLODetector
+
+            detector = YOLODetector(
+                model_path=meta.weights_path,
+                device=getattr(self._config, "model_device", "cpu"),
+            )
+            detector.conf = getattr(self._config, "model_confidence", 0.25)
+            detector.iou = getattr(self._config, "model_iou", 0.45)
+            detector.img_size = meta.img_size
+
+        self._detector_cache[meta.id] = detector
+        return detector
 
     def start_camera(self, camera_id: str, camera_config: dict) -> bool:
         """Start processing for a camera."""
@@ -31,10 +92,13 @@ class CameraManager:
         def tracker_factory():
             return ByteTrackTracker(track_thresh=0.5, track_buffer=30, match_thresh=0.8)
 
+        model_id = camera_config.get("model_id")
+        detector = self.get_detector(model_id)
+
         pipeline = CameraPipeline(
             camera_id=camera_id,
             camera_config=camera_config,
-            detector=self._detector,
+            detector=detector,
             tracker_factory=tracker_factory,
             redis_client=self._redis,
             evidence_dir=self._config.evidence_dir,

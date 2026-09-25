@@ -1,6 +1,7 @@
 """VigilAI Core Configuration"""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +31,9 @@ class Settings(BaseSettings):
     # Storage
     EVIDENCE_DIR: str = "./evidence"
     UPLOAD_DIR: str = "./uploads"
+    DEMO_VIDEO_PATH: str = str(
+        Path(__file__).resolve().parents[4] / "assets" / "demo" / "demo_feed.mp4"
+    )
     MAX_UPLOAD_SIZE_MB: int = 500
 
     # Model

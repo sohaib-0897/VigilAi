@@ -27,6 +27,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from vigilai_api.core.models_registry import is_ppe_model
 from vigilai_api.cv.analytics.counting import CountingAnalyzer
 from vigilai_api.cv.analytics.dwell_analytics import DwellAnalyzer
 from vigilai_api.cv.analytics.line_analytics import LineAnalyzer
@@ -34,6 +35,7 @@ from vigilai_api.cv.analytics.zone_analytics import ZoneAnalyzer, ZoneTransition
 from vigilai_api.cv.annotator import FrameAnnotator
 from vigilai_api.cv.events.manager import EventManager
 from vigilai_api.cv.evidence.capture import EvidenceCapture
+from vigilai_api.cv.ppe import ComplianceStatus, PPEAnalyzer
 from vigilai_api.cv.rules.engine import RuleConfig, RulesEngine
 from vigilai_api.cv.video.factory import VideoSourceFactory
 
@@ -92,6 +94,8 @@ class CameraPipeline:
         self._event_manager: EventManager | None = None
         self._evidence_capture: EvidenceCapture | None = None
         self._annotator: FrameAnnotator | None = None
+        self._is_ppe: bool = False
+        self._ppe_analyzer: PPEAnalyzer | None = None
 
         # Video source
         self._video_source = None
@@ -99,6 +103,7 @@ class CameraPipeline:
         # Zone/line config for annotation
         self._zone_configs: dict = {}
         self._line_configs: dict = {}
+        self._last_loop_count = 0
 
     def start(self) -> None:
         """Start the pipeline in background threads."""
@@ -166,9 +171,27 @@ class CameraPipeline:
         Does NOT busy-loop on failed sources — uses backoff.
         """
         source_type = self._camera_config.get("source_type", "local_video")
+        source_uri = self._camera_config.get("source_uri", "")
+        if source_type in ("local", "local_video") and not os.path.exists(source_uri):
+            filename = os.path.basename(source_uri.replace("\\", "/"))
+            candidates = [
+                os.path.join(self._camera_config.get("upload_dir", "/app/uploads"), filename),
+                os.path.join("/app/uploads", filename),
+                os.path.join("/app/data/demo", filename),
+                os.path.join(PROJECT_ROOT, "uploads", filename),
+                os.path.join(PROJECT_ROOT, "assets", "demo", filename),
+                "/app/data/demo/demo_feed.mp4",
+                os.path.join(PROJECT_ROOT, "uploads", "demo_feed.mp4"),
+            ]
+            for candidate in candidates:
+                if os.path.isfile(candidate):
+                    logger.info("Resolved cross-environment source_uri '%s' -> '%s'", source_uri, candidate)
+                    source_uri = candidate
+                    break
+
         try:
             self._video_source = VideoSourceFactory.create(
-                source_type, self._camera_config.get("source_uri", "")
+                source_type, source_uri, loop=True
             )
             failures = 0
             while self._running:
@@ -194,7 +217,8 @@ class CameraPipeline:
                     self._stop_event.wait(min(2 ** min(failures, 5), 30))
                     continue
                 failures = 0
-                self._frame_buffer.put(frame, time.time())
+                loop_count = getattr(self._video_source, "loop_count", 0)
+                self._frame_buffer.put(frame, time.time(), loop_count)
                 self._metrics.record_frame_received()
                 if source_type == "local_video":
                     fps = self._video_source.metadata().fps or 25
@@ -236,9 +260,12 @@ class CameraPipeline:
                     break
                 continue
 
-            frame, timestamp = frame_data
+            frame, timestamp, loop_count = frame_data
 
             try:
+                if loop_count > self._last_loop_count:
+                    self._reset_for_video_replay(timestamp)
+                    self._last_loop_count = loop_count
                 # 1. Detection
                 detection_result = self._detector.detect(frame)
                 detections = (
@@ -254,7 +281,15 @@ class CameraPipeline:
 
                 # 2. Tracking
                 if self._tracker:
-                    tracking_result = self._tracker.update(detections, frame)
+                    if self._is_ppe:
+                        tracker_detections = [
+                            replace(d, class_name="person") if d.class_name.lower() == "person" else d
+                            for d in detections
+                            if d.class_name.lower() == "person"
+                        ]
+                    else:
+                        tracker_detections = detections
+                    tracking_result = self._tracker.update(tracker_detections, frame)
                     tracks = (
                         tracking_result.tracks
                         if hasattr(tracking_result, "tracks")
@@ -322,6 +357,26 @@ class CameraPipeline:
                         tracks, self._zone_analyzer, self._line_analyzer
                     )
 
+                # 6b. PPE Analytics
+                ppe_alerts = []
+                ppe_states = {}
+                ppe_obs = {}
+                if self._ppe_analyzer and tracks:
+                    ppe_rules = [
+                        r
+                        for r in (self._rules_engine._rules if self._rules_engine else [])
+                        if r.rule_type == "ppe_violation"
+                    ]
+                    ppe_alerts, ppe_states = self._ppe_analyzer.update(
+                        person_tracks=tracks,
+                        all_detections=detections,
+                        ppe_rules=ppe_rules,
+                        zone_configs=self._zone_configs,
+                        frame_shape=frame.shape,
+                        timestamp=timestamp,
+                    )
+                    ppe_obs = self._ppe_analyzer._last_observations
+
                 # 7. Rule Evaluation
                 rule_matches = []
                 if self._rules_engine:
@@ -331,6 +386,8 @@ class CameraPipeline:
                         rule_matches.extend(self._rules_engine.evaluate_line_crossing(le))
                     for da in dwell_alerts:
                         rule_matches.extend(self._rules_engine.evaluate_dwell_alert(da))
+                    for pa in ppe_alerts:
+                        rule_matches.extend(self._rules_engine.evaluate_ppe_alert(pa))
                     # Check occupancy thresholds
                     if self._zone_analyzer:
                         for zone_id in self._zone_configs:
@@ -363,6 +420,12 @@ class CameraPipeline:
                         ) or (
                             active.event_type in ("occupancy_threshold", "class_presence")
                             and active.rule_id not in matched_rules
+                        ) or (
+                            active.event_type == "ppe_violation"
+                            and (
+                                (active.track_id in ppe_states and ppe_states[active.track_id].status == ComplianceStatus.COMPLIANT)
+                                or (active.zone_id and active.track_id in ppe_states and ppe_states[active.track_id].zone_id != active.zone_id)
+                            )
                         ):
                             resolved = self._event_manager.resolve_event(
                                 active.fingerprint, timestamp
@@ -438,6 +501,8 @@ class CameraPipeline:
                         lines=self._line_configs if self._line_configs else None,
                         counts=counting_state,
                         fps=self._metrics.fps,
+                        ppe_states=ppe_states if ppe_states else None,
+                        ppe_observations=ppe_obs if ppe_obs else None,
                     )
 
                 # 11. Publish annotated frame to Redis (MJPEG streaming)
@@ -458,8 +523,9 @@ class CameraPipeline:
                 self._metrics.record_inference_time(inference_ms)
                 self._metrics.record_frame_processed()
                 self._metrics.frames_dropped = self._frame_buffer.stats["frames_dropped"]
-                if self._metrics.frames_processed == 1:
-                    worker_db.update_camera_status(self._camera_id, "online")
+                if not getattr(self, "_status_marked_online", False):
+                    worker_db.update_camera_status(self._camera_id, "online", "Streaming")
+                    self._status_marked_online = True
 
                 # Publish status update
                 if self._redis and int(time.time()) % 2 == 0:
@@ -579,6 +645,15 @@ class CameraPipeline:
         os.makedirs(self._evidence_dir, exist_ok=True)
         self._evidence_capture = EvidenceCapture(self._evidence_dir)
 
+        # PPE Compliance Analyzer
+        model_id = self._camera_config.get("model_id")
+        has_ppe_rules = any(r.get("rule_type") == "ppe_violation" for r in (rules_data or []))
+        self._is_ppe = is_ppe_model(model_id) or has_ppe_rules
+        if self._is_ppe:
+            self._ppe_analyzer = PPEAnalyzer(self._camera_id)
+        else:
+            self._ppe_analyzer = None
+
         logger.info(
             f"Loaded config for camera {self._camera_id}: "
             f"{len(self._zone_configs)} zones, "
@@ -590,6 +665,25 @@ class CameraPipeline:
         for tid in list(self._track_summaries):
             worker_db.save_track_summary(self._track_summaries[tid])
             del self._track_summaries[tid]
+
+    def _reset_for_video_replay(self, timestamp: float) -> None:
+        """End state from the previous pass before tracker IDs are reused."""
+        if self._event_manager:
+            for event in self._event_manager.end_all_events(timestamp):
+                self._persist_event(event)
+        self._flush_track_summaries()
+        self._tracker = None
+        self._zone_analyzer = None
+        self._line_analyzer = None
+        self._dwell_analyzer = None
+        self._counting_analyzer = None
+        self._rules_engine = None
+        self._event_manager = None
+        self._ppe_analyzer = None
+        self._zone_configs = {}
+        self._line_configs = {}
+        self._load_camera_config()
+        logger.info("Reset camera state at local video replay boundary: %s", self._camera_id)
 
     def _persist_event(self, event_record) -> str:
         """Save event to database."""

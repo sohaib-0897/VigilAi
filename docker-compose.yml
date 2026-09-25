@@ -54,6 +54,7 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-Y2hhbmdlLXRoaXMtdG8tYS0zMi1ieXRl}
       EVIDENCE_DIR: /app/evidence
       UPLOAD_DIR: /app/uploads
+      DEMO_VIDEO_PATH: /app/data/demo/demo_feed.mp4
       YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-yolov8n.pt}
       YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -63,6 +64,7 @@ services:
       - evidence_data:/app/evidence
       - upload_data:/app/uploads
       - model_data:/app/models
+      - ./assets/demo:/app/data/demo:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,6 +95,7 @@ services:
       - evidence_data:/app/evidence
       - upload_data:/app/uploads
       - model_data:/app/models
+      - ./assets/demo:/app/data/demo:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,6 +123,12 @@ services:
       - "${WEB_PORT:-3000}:3000"
     environment:
       API_INTERNAL_URL: http://api:8000
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       api:
         condition: service_healthy

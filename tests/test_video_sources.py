@@ -16,6 +16,20 @@ def test_video_source_factory_local():
     assert source._loop is True
 
 
+def test_local_video_loop_count_marks_successful_replay():
+    source = LocalVideoSource("test.mp4", loop=True)
+    cap = MagicMock()
+    cap.isOpened.return_value = True
+    cap.get.return_value = 10
+    cap.read.side_effect = [(False, None), (True, np.zeros((2, 2, 3), dtype=np.uint8))]
+    with patch("cv2.VideoCapture", return_value=cap):
+        assert source.open()
+        assert source.loop_count == 0
+        ok, frame = source.read()
+    assert ok and frame is not None
+    assert source.loop_count == 1
+
+
 def test_video_source_factory_webcam_parsing():
     # Empty string defaults to device 0
     source1 = VideoSourceFactory.create("webcam", "")

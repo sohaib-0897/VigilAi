@@ -38,6 +38,7 @@ gsd-core/
 
 # Generated media, training runs, and reports
 *.mp4
+!assets/demo/demo_feed.mp4
 *.avi
 *.mov
 *.mkv
@@ -45,6 +46,7 @@ gsd-core/
 *.dump
 training_output/
 runs/
+datasets/
 htmlcov/
 dist/
 build/
