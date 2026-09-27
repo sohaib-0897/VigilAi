@@ -86,11 +86,29 @@ In adherence to [`AGENTS.md`](../AGENTS.md):
 
 - **TensorRT Acceleration**: `NOT_MEASURED` (Requires NVIDIA TensorRT GPU runtime; host environment has no NVIDIA GPU).
 - **GPU Inference Benchmarks**: `NOT_AVAILABLE` / `NOT_MEASURED` on this CPU-only host.
-- **Custom Model Training Metrics (mAP@50, mAP@50-95, Precision, Recall)**: `NOT_EXECUTED` (Pretrained COCO weights are utilized for general surveillance classes).
+- **Custom Model Training & Evaluation**: Executed on the official Ultralytics Construction-PPE dataset (1,416 images, 11 classes, 12 epochs). Evaluated on the strictly held-out test partition (141 images, 1,251 instances: mAP@50: 51.97%, helmet: 92.74%, vest: 89.77%). Full results and failure mode analysis are in [`ppe_test_results.json`](ppe_test_results.json) and [`ppe_error_analysis.md`](ppe_error_analysis.md). Pretrained COCO weights are utilized for general surveillance classes.
 
 ---
 
-## 5. Reproducing Benchmarks
+## 5. Construction PPE Evaluation Summary
+
+| Class Name | Test Instances | Precision | Recall | mAP@50 | mAP@50-95 | Notes |
+|:---|:---:|:---:|:---:|:---:|:---:|:---|
+| **helmet** | 192 | 0.8703 | 0.9062 | **0.9274** | 0.4783 | Strong visual signal (hard hat shape/color) |
+| **vest** | 178 | 0.7806 | 0.8933 | **0.8977** | 0.5634 | High recall on high-visibility garments |
+| **Person** | 236 | 0.7736 | 0.8347 | **0.8423** | 0.5054 | Core subject tracking anchor |
+| **gloves** | 163 | 0.7882 | 0.7178 | **0.7483** | 0.3576 | Small object, partial occlusions |
+| **boots** | 211 | 0.6088 | 0.6777 | **0.7288** | 0.3797 | Ground-level occlusions |
+| **goggles** | 52 | 0.4989 | 0.7500 | **0.7271** | 0.3069 | Fine facial geometry |
+| **no_helmet** | 40 | 0.2594 | 0.1750 | **0.1703** | 0.0507 | Absence detection failure mode |
+| **no_gloves** | 58 | 0.3086 | 0.0690 | **0.1324** | 0.0386 | Absence detection failure mode |
+| **no_goggle** | 33 | 0.2020 | 0.0773 | **0.1318** | 0.0359 | Absence detection failure mode |
+| **no_boots** | 23 | 0.0000 | 0.0000 | **0.0105** | 0.0026 | Extreme class imbalance |
+| **Overall** | **1,251** | **0.5045** | **0.5043** | **0.5197** | **0.2608** | Evaluated on held-out test split |
+
+---
+
+## 6. Reproducing Benchmarks
 
 To reproduce these measurements locally:
 
