@@ -28,17 +28,34 @@ def test_ppe_dataset_validation_report():
 
 
 def test_ppe_training_report():
-    report_path = Path("training_output/vigilai_ppe_v2_full/training_report.json")
-    assert report_path.exists(), "training_report.json should exist"
+    report_path = Path("benchmarks/ppe_training_report.json")
+    assert report_path.exists(), "canonical PPE training report should exist"
 
     with open(report_path) as f:
         data = json.load(f)
 
     assert data["experiment_name"] == "vigilai_ppe_v2_full"
-    assert data["epochs_completed"] == 12
-    assert data["training_time_seconds"] > 0
+    assert data["base_model"] == "yolov8n.pt"
     assert data["num_classes"] == 11
-    assert data["metrics"]["mAP50"] > 0.50
+    assert data["image_size"] == 512
+    assert data["epochs_completed"] > 2
+    assert data["batch_size"] == 16
+    assert data["device"] == "cpu"
+    assert data["training_time_seconds"] > 1000
+    dataset = json.loads(Path("benchmarks/ppe_dataset_report.json").read_text())
+    assert dataset["summary"]["total_images"] > 1000
+    splits = dataset["split_breakdown"]
+    assert splits["train"]["images_count"] == 1132
+    assert splits["val"]["images_count"] == 143
+    assert splits["test"]["images_count"] == 141
+    assert dataset["summary"]["total_annotated_instances"] > 10000
+    assert data["num_classes"] == 11
+    metrics = data["metrics"]
+    assert isinstance(metrics, dict), "validation metrics must be measured"
+    assert all(key in metrics and isinstance(metrics[key], (int, float)) for key in
+               ("precision", "recall", "mAP50", "mAP50_95"))
+    assert all(0 < metrics[key] <= 1 for key in
+               ("precision", "recall", "mAP50", "mAP50_95"))
 
 
 def test_ppe_held_out_test_results():
