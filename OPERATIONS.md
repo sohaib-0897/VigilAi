@@ -46,14 +46,19 @@ After deployment:
 
 The authenticated `POST /api/v1/cameras/demo` endpoint creates or returns the signed-in user's normal local-video camera. It selects the bundled file server-side and requires no uploaded path. Processing runs through the standard worker and camera model. No detections, events, analytics, or evidence are pre-seeded. Local video sources currently replay on EOF; the worker resets tracking, temporal analytics, PPE, and active event state at each replay boundary and resolves active events before starting the next pass.
 
-**First-run model artifact.** The demo camera's default model (`coco-yolov8n-onnx`) requires `models/yolov8n.onnx` inside the shared `model_data` volume. This is not currently produced automatically by any Dockerfile or startup step — on a genuinely fresh set of volumes (a brand-new `docker compose up`, local or production) the first `start_camera` call fails with `RuntimeError: Failed to load YOLO model models/yolov8n.onnx`. Export it once after the stack is up:
+**Model provisioning.** Compose runs the one-shot `model-init` service before starting the worker. It provisions the registry default `coco-yolov8n-onnx` artifact at `/app/models/yolov8n.onnx` in the persistent `model_data` named volume. The service uses the existing `scripts/export_onnx.py` path to export the official Ultralytics `yolov8n.pt` checkpoint with the registry's 640-pixel input, FP32, static shape, and ONNX opset 17. It validates ONNX structure, CPU load/inference, tensor shapes, and COCO class metadata before atomically publishing the file. A valid existing artifact is reused; an invalid one is regenerated without replacing it until the replacement validates. The API and worker continue to share the same volume, so existing valid manually provisioned volumes remain usable.
+
+Internet access is required on the first boot of a fresh `model_data` volume (or when regeneration is needed), so Ultralytics can fetch its canonical `yolov8n.pt` asset. A volume that already contains a valid ONNX artifact needs no model download. No custom URL or user-provided remote artifact is used. If provisioning fails, the initializer exits nonzero with the model ID and cause, and Compose will not start the worker; restore connectivity or fix the artifact/source, then retry `docker compose up -d`.
+
+To force regeneration while preserving the named volume, run from the repository root:
 
 ```bash
-docker compose exec api python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"  # downloads yolov8n.pt if not already present
-docker compose exec api python scripts/export_onnx.py --model yolov8n.pt --output models/yolov8n.onnx
+docker compose run --rm model-init python scripts/export_onnx.py \
+  --model yolov8n.pt --output /app/models/yolov8n.onnx \
+  --imgsz 640 --opset 17 --skip-if-valid --force --download-official-yolov8n
 ```
 
-`models/` is a shared named volume between `api` and `worker`, so exporting from either container makes the weights visible to both. This is a known gap, not something this deployment work fixes; camera creation using `coco-yolov8n-pt` (native PyTorch, `yolov8n.pt`) works without this step if you need analytics running before performing the export.
+For production, use `docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm model-init ...` with the same arguments. The running worker keeps its already-loaded session; restart/recreate the worker after forced regeneration if it must load the newly generated file.
 
 ## Migrations
 

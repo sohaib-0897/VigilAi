@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 500
 
     # Model
-    YOLO_MODEL_PATH: str = "yolov8n.pt"
+    YOLO_MODEL_PATH: str = "models/yolov8n.onnx"
     YOLO_DEVICE: str = "cpu"
     YOLO_CONFIDENCE: float = 0.25
     YOLO_IOU_THRESHOLD: float = 0.45

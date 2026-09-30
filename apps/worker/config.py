@@ -13,7 +13,7 @@ class WorkerSettings(BaseSettings):
     heartbeat_interval: int = Field(default=5, validation_alias="WORKER_HEARTBEAT_INTERVAL")
     frame_queue_size: int = Field(default=30, validation_alias="FRAME_QUEUE_SIZE")
     evidence_dir: str = Field(default="./evidence", validation_alias="EVIDENCE_DIR")
-    model_path: str = Field(default="yolov8n.pt", validation_alias="YOLO_MODEL_PATH")
+    model_path: str = Field(default="models/yolov8n.onnx", validation_alias="YOLO_MODEL_PATH")
     model_device: str = Field(default="cpu", validation_alias="YOLO_DEVICE")
     model_confidence: float = Field(default=0.4, validation_alias="YOLO_CONFIDENCE")
     model_iou: float = Field(default=0.5, validation_alias="YOLO_IOU_THRESHOLD")
