@@ -46,6 +46,15 @@ After deployment:
 
 The authenticated `POST /api/v1/cameras/demo` endpoint creates or returns the signed-in user's normal local-video camera. It selects the bundled file server-side and requires no uploaded path. Processing runs through the standard worker and camera model. No detections, events, analytics, or evidence are pre-seeded. Local video sources currently replay on EOF; the worker resets tracking, temporal analytics, PPE, and active event state at each replay boundary and resolves active events before starting the next pass.
 
+**First-run model artifact.** The demo camera's default model (`coco-yolov8n-onnx`) requires `models/yolov8n.onnx` inside the shared `model_data` volume. This is not currently produced automatically by any Dockerfile or startup step — on a genuinely fresh set of volumes (a brand-new `docker compose up`, local or production) the first `start_camera` call fails with `RuntimeError: Failed to load YOLO model models/yolov8n.onnx`. Export it once after the stack is up:
+
+```bash
+docker compose exec api python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"  # downloads yolov8n.pt if not already present
+docker compose exec api python scripts/export_onnx.py --model yolov8n.pt --output models/yolov8n.onnx
+```
+
+`models/` is a shared named volume between `api` and `worker`, so exporting from either container makes the weights visible to both. This is a known gap, not something this deployment work fixes; camera creation using `coco-yolov8n-pt` (native PyTorch, `yolov8n.pt`) works without this step if you need analytics running before performing the export.
+
 ## Migrations
 
 ```bash
@@ -93,4 +102,173 @@ This stops services while preserving named volumes. Removing volumes also remove
 
 ## Deployment boundaries
 
-The supplied Compose configuration is for local development. Public deployment requires intentional network exposure, TLS termination, persistent secrets, origin/cookie configuration, backups, and environment-specific verification. GPU device forwarding is an optional Compose configuration; GPU and TensorRT execution were not verified during publication.
+The base `docker-compose.yml` is for local development and demos: it publishes Postgres, Redis, the API, and the web app directly on the host for convenience. It is unchanged by the production path below.
+
+# Production VPS Deployment
+
+This adds a second, opt-in deployment path for a single Ubuntu VPS with a real domain:
+
+```text
+INTERNET
+   |
+   v
+CADDY (ports 80/443 only)
+   |
+   +-- Next.js web
+   +-- FastAPI API / WebSocket / MJPEG stream
+```
+
+`postgres`, `redis`, `api`, and `web` no longer publish any host ports in this mode — Caddy is the only container reachable from outside the host, and everything else talks over the internal Docker network. This is implemented as an overlay file, `docker-compose.prod.yml`, applied on top of the existing `docker-compose.yml` — nothing about the local/demo workflow changes.
+
+### 1. Provision the VPS
+
+Ubuntu 22.04 or 24.04, recommended 4 vCPU / 8 GB RAM minimum (CPU-only YOLO inference is the heaviest workload). SSH in as a non-root sudo user.
+
+### 2. Install Docker Engine + Compose plugin
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker "$USER"
+# log out and back in for the group change to take effect
+docker compose version   # must be v2.24 or newer (uses the `!reset` merge key)
+```
+
+### 3. Configure the firewall
+
+Allow SSH **before** enabling the firewall, or you will lock yourself out:
+
+```bash
+sudo ufw allow OpenSSH        # or: sudo ufw allow 22/tcp  — do this first
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+If SSH runs on a non-default port, replace `OpenSSH`/`22/tcp` with that port before enabling ufw. Note that Docker manages its own iptables rules for published ports — since only Caddy publishes ports in this configuration, Postgres/Redis/API/web are not reachable from outside the host regardless of ufw, but ufw is still the correct place to restrict SSH access.
+
+### 4. Clone the repository
+
+```bash
+git clone <your-repo-url> vigilai
+cd vigilai
+```
+
+### 5. Create `.env`
+
+```bash
+cp .env.example .env
+```
+
+Fill in the values under `# LOCAL / DEVELOPMENT` (they double as the values used inside the containers) and then the `# PRODUCTION REQUIRED` section below.
+
+### 6. Generate `SECRET_KEY`
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Put the result in `SECRET_KEY` in `.env`.
+
+### 7. Generate `ENCRYPTION_KEY`
+
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Put the result in `ENCRYPTION_KEY` in `.env`. **Back this up together with your database backups.** It encrypts stored RTSP camera credentials; losing it or rotating it without re-encrypting existing rows makes those credentials permanently unreadable.
+
+Also set `POSTGRES_PASSWORD` to a strong value (`openssl rand -hex 24`) and set `ENVIRONMENT=production`.
+
+### 8. Set `DOMAIN`
+
+```bash
+# in .env
+DOMAIN=example.com
+ACME_EMAIL=you@example.com
+```
+
+`CORS_ORIGINS` and `FRONTEND_URL` are derived automatically from `DOMAIN` (as `https://DOMAIN`) unless you override them explicitly in `.env`.
+
+### 9. Point DNS at the VPS
+
+Create an `A` record (and `AAAA` if using IPv6) for `DOMAIN` pointing at the VPS's public IP. Verify propagation before starting Caddy, or Let's Encrypt issuance will fail:
+
+```bash
+dig +short example.com
+```
+
+### 10. Start the production stack
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The API container still runs `alembic upgrade head` automatically on startup.
+
+### 11. Verify HTTPS
+
+```bash
+curl -I http://example.com      # expect a redirect to https
+curl -I https://example.com     # expect 200 from the web app
+```
+
+Caddy obtains and renews the certificate automatically; no manual certbot step is required.
+
+### 12. Register a real account
+
+Open `https://example.com`, register, and log in. Confirm the session cookie in browser devtools carries `Secure`, `HttpOnly`, and `SameSite=Lax`.
+
+### 13. Test the demo video
+
+Cameras -> **USE DEMO VIDEO** -> start analytics -> open the live monitor. The bundled demo asset is committed to Git (`assets/demo/demo_feed.mp4`), so a fresh clone already has it; no manual upload is needed. Confirm the live feed updates continuously (MJPEG is not buffered by Caddy).
+
+### 14. Verify events and evidence
+
+Create a zone or line, add a matching rule, and confirm a triggered event appears in the Events UI with an evidence snapshot.
+
+### 15. Inspect logs
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f api worker caddy
+```
+
+All services log to stdout/stderr; no need to exec into containers for normal operation.
+
+### 16. Backups
+
+Back up, on a regular schedule:
+
+- **PostgreSQL**: `docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" > backup-$(date +%F).dump`
+- **Evidence and uploads** (named volumes `vigilai_evidence_data`, `vigilai_upload_data`): `docker run --rm -v vigilai_evidence_data:/data -v "$PWD":/backup alpine tar czf /backup/evidence-$(date +%F).tar.gz -C /data .`
+- **`.env`**, especially `ENCRYPTION_KEY`, stored alongside (not inside) the repository, using secure storage. Losing it independently of the database backup makes RTSP credentials in that backup unrecoverable.
+- `caddy_data` if you want to avoid re-issuing certificates after a restore (Let's Encrypt rate-limits repeated issuance for the same domain).
+
+### 17. Update / redeploy
+
+```bash
+git pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Migrations run automatically as part of API container startup.
+
+### Production environment variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DOMAIN` | Yes | Public hostname Caddy requests a certificate for and proxies |
+| `SECRET_KEY` | Yes | JWT signing key; rejected if short or a known placeholder |
+| `ENCRYPTION_KEY` | Yes | Fernet key for RTSP credential encryption; rejected if invalid or a known placeholder |
+| `POSTGRES_PASSWORD` | Yes | Database password; no longer defaults to `vigilai_dev` |
+| `ACME_EMAIL` | Recommended | Let's Encrypt expiry contact |
+| `ENVIRONMENT=production` | Yes | Enables strict secret validation and `Secure` auth cookies |
+| `CORS_ORIGINS`, `FRONTEND_URL` | Optional | Derived from `DOMAIN` when left unset |
+
+### What only a real VPS and domain can verify
+
+The following cannot be verified from a local build and are the deployer's responsibility to confirm after a real deployment: actual Let's Encrypt certificate issuance and renewal, public DNS resolution, `ufw`/cloud-provider firewall behavior against real internet traffic, and WebSocket/MJPEG latency over a real network path.
+
+### Explicitly out of scope
+
+This deployment path intentionally does not add Kubernetes, Terraform, cloud-provider-specific infrastructure, Celery/Ray, a managed database, S3-compatible storage, Cloudflare-specific tooling, WebRTC, or GPU/TensorRT configuration. It is a single-host Docker Compose + Caddy deployment only.

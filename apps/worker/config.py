@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class WorkerSettings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
     database_sync_url: str = Field(
-        default="postgresql://vigilai:vigilai_dev@localhost:5432/vigilai",
+        default="postgresql+psycopg2://vigilai:vigilai_dev@localhost:5432/vigilai",
         validation_alias="DATABASE_SYNC_URL",
     )
     worker_id: str = Field(default="worker-1", validation_alias="WORKER_ID")

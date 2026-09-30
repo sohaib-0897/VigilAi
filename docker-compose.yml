@@ -48,7 +48,7 @@ services:
       - "${API_PORT:-8000}:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:-vigilai_dev}@postgres:5432/${POSTGRES_DB:-vigilai}
-      DATABASE_SYNC_URL: postgresql://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:-vigilai_dev}@postgres:5432/${POSTGRES_DB:-vigilai}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:-vigilai_dev}@postgres:5432/${POSTGRES_DB:-vigilai}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-change-this-to-a-random-secret-key-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-Y2hhbmdlLXRoaXMtdG8tYS0zMi1ieXRl}
@@ -80,7 +80,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:-vigilai_dev}@postgres:5432/${POSTGRES_DB:-vigilai}
-      DATABASE_SYNC_URL: postgresql://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:-vigilai_dev}@postgres:5432/${POSTGRES_DB:-vigilai}
+      DATABASE_SYNC_URL: postgresql+psycopg2://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:-vigilai_dev}@postgres:5432/${POSTGRES_DB:-vigilai}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-change-this-to-a-random-secret-key-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-Y2hhbmdlLXRoaXMtdG8tYS0zMi1ieXRl}

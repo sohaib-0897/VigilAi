@@ -12,6 +12,30 @@ settings = get_settings()
 router = APIRouter()
 
 
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Set the access/refresh cookies with environment-aware security flags.
+
+    `Secure` is only set when ENVIRONMENT=production (i.e. served over
+    HTTPS behind Caddy). Forcing it on in local HTTP development would
+    silently break cookie-based login.
+    """
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/api/v1/auth",
+    )
+
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: RegisterRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
@@ -24,23 +48,7 @@ async def login(user_in: LoginRequest, response: Response, db: AsyncSession = De
     service = AuthService(db)
     access_token, refresh_token = await service.login(user_in.email, user_in.password)
 
-    # Set HttpOnly cookie
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        samesite="lax",
-        secure=settings.ENVIRONMENT == "production",  # ideally check environment
-    )
-
-    response.set_cookie(
-        "refresh_token",
-        refresh_token,
-        httponly=True,
-        samesite="lax",
-        secure=settings.ENVIRONMENT == "production",
-        path="/api/v1/auth",
-    )
+    _set_auth_cookies(response, access_token, refresh_token)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -59,21 +67,7 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     service = AuthService(db)
     new_access, new_refresh = await service.refresh_token(token)
 
-    response.set_cookie(
-        key="access_token",
-        value=new_access,
-        httponly=True,
-        samesite="lax",
-        secure=settings.ENVIRONMENT == "production",
-    )
-    response.set_cookie(
-        "refresh_token",
-        new_refresh,
-        httponly=True,
-        samesite="lax",
-        secure=settings.ENVIRONMENT == "production",
-        path="/api/v1/auth",
-    )
+    _set_auth_cookies(response, new_access, new_refresh)
     return {"access_token": new_access, "token_type": "bearer"}
 
 
@@ -83,7 +77,7 @@ async def logout(response: Response):
         key="access_token",
         httponly=True,
         samesite="lax",
-        secure=settings.ENVIRONMENT == "production",
+        secure=settings.COOKIE_SECURE,
     )
     response.delete_cookie("refresh_token", path="/api/v1/auth")
     return {"msg": "Logged out successfully"}

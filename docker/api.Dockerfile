@@ -51,5 +51,11 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/system/health || exit 1
 
-# Run the API server
-CMD ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn vigilai_api.main:app --host 0.0.0.0 --port 8000"]
+# Run the API server. `exec` hands off to uvicorn as PID 1's direct child
+# after migrations complete, so it receives SIGTERM directly for graceful
+# shutdown instead of it being swallowed by the shell.
+# --proxy-headers / --forwarded-allow-ips let uvicorn trust X-Forwarded-*
+# from a reverse proxy (Caddy in production) so request.url.scheme,
+# redirects and client IP logging are correct. Defaults to loopback only,
+# which has no effect unless a proxy is actually in front of the API.
+CMD ["sh", "-c", "python -m alembic upgrade head && exec python -m uvicorn vigilai_api.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips \"${FORWARDED_ALLOW_IPS:-127.0.0.1}\""]

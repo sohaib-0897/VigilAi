@@ -1,0 +1,136 @@
+# VigilAI — Production overlay
+#
+# Adds a Caddy reverse proxy (the only publicly exposed service), removes
+# host port publishing from postgres/redis/api/web, and requires real
+# secrets instead of the insecure local defaults.
+#
+# Usage (from the repository root, on the VPS):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Required environment variables (see .env.example): DOMAIN, SECRET_KEY,
+# ENCRYPTION_KEY, POSTGRES_PASSWORD. Missing any of them fails `config`/`up`
+# immediately instead of silently falling back to an insecure default.
+#
+# Requires Docker Compose v2.24+ for the `!reset` merge directive used below
+# to remove the base file's `ports:` mappings.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: vigilai-caddy
+    restart: unless-stopped
+    init: true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3 (QUIC)
+    environment:
+      DOMAIN: "${DOMAIN:?DOMAIN is required in production - set it in .env, e.g. DOMAIN=example.com}"
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-500}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - default
+
+  # --- Internal services: no host port publishing in production ---
+
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  redis:
+    ports: !reset []
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  api:
+    ports: !reset []
+    init: true
+    environment:
+      ENVIRONMENT: production
+      DOMAIN: "${DOMAIN:?DOMAIN is required in production}"
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY is required in production - see .env.example for how to generate one}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:?ENCRYPTION_KEY is required in production - see .env.example for how to generate one}"
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}@postgres:5432/${POSTGRES_DB:-vigilai}"
+      DATABASE_SYNC_URL: "postgresql+psycopg2://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}@postgres:5432/${POSTGRES_DB:-vigilai}"
+      REDIS_URL: "redis://redis:6379/0"
+      EVIDENCE_DIR: /app/evidence
+      UPLOAD_DIR: /app/uploads
+      DEMO_VIDEO_PATH: /app/data/demo/demo_feed.mp4
+      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-yolov8n.pt}
+      YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
+      # api is only reachable from the internal Docker network (no published
+      # port); Caddy is the sole client, so it is safe to trust forwarded
+      # headers from the whole internal subnet pinned below.
+      FORWARDED_ALLOW_IPS: "172.28.0.0/16"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  worker:
+    init: true
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY is required in production - see .env.example for how to generate one}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:?ENCRYPTION_KEY is required in production - see .env.example for how to generate one}"
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}@postgres:5432/${POSTGRES_DB:-vigilai}"
+      DATABASE_SYNC_URL: "postgresql+psycopg2://${POSTGRES_USER:-vigilai}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}@postgres:5432/${POSTGRES_DB:-vigilai}"
+      REDIS_URL: "redis://redis:6379/0"
+      EVIDENCE_DIR: /app/evidence
+      UPLOAD_DIR: /app/uploads
+      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-yolov8n.pt}
+      YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
+      MAX_CAMERAS_PER_WORKER: ${MAX_CAMERAS_PER_WORKER:-4}
+      FRAME_QUEUE_SIZE: ${FRAME_QUEUE_SIZE:-30}
+      WORKER_HEARTBEAT_INTERVAL: ${WORKER_HEARTBEAT_INTERVAL:-5}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  web:
+    ports: !reset []
+    init: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

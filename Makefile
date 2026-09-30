@@ -27,6 +27,18 @@ down: ## Stop all services
 up-gpu: ## Start all services with GPU support
 	docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 
+up-prod: ## Start the production stack (Caddy + HTTPS; requires DOMAIN/SECRET_KEY/ENCRYPTION_KEY/POSTGRES_PASSWORD in .env)
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+down-prod: ## Stop the production stack
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+
+config-prod: ## Validate the production Compose configuration
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml config
+
+logs-prod: ## Show logs from the production stack
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+
 logs: ## Show logs from all services
 	docker compose logs -f
 

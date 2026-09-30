@@ -1,0 +1,71 @@
+# VigilAI — production Caddy configuration
+#
+# Terminates TLS for {$DOMAIN}, obtaining and renewing certificates
+# automatically via Let's Encrypt (or Caddy's internal CA when DOMAIN
+# resolves to something like "localhost" for local testing).
+#
+# Routing:
+#   /api/*  -> FastAPI (api:8000)   — REST, WebSocket upgrades, MJPEG stream
+#   /*      -> Next.js (web:3000)
+#
+# Caddy handles the HTTP -> HTTPS redirect and WebSocket upgrades
+# automatically; only the MJPEG route needs explicit tuning to avoid
+# buffering, and the API route needs a long idle timeout for WebSockets.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	# --- MJPEG live camera stream: never buffer, never compress ---
+	# multipart/x-mixed-replace must be flushed to the client frame-by-frame;
+	# any buffering here turns "live" into "delayed" or "frozen".
+	@mjpeg {
+		path_regexp ^/api/v1/cameras/[^/]+/stream$
+	}
+	handle @mjpeg {
+		reverse_proxy api:8000 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	# --- REST API + WebSockets (event stream, camera status) ---
+	# Caddy upgrades Connection: Upgrade requests automatically; the extended
+	# idle/read timeouts keep long-lived WebSocket connections from being
+	# dropped by the proxy while otherwise idle.
+	handle /api/* {
+		# Match the API's own MAX_UPLOAD_SIZE_MB so large demo/RTSP video
+		# uploads are not rejected by the proxy before reaching FastAPI.
+		request_body {
+			max_size {$MAX_UPLOAD_SIZE_MB}MB
+		}
+		reverse_proxy api:8000 {
+			transport http {
+				read_timeout 24h
+				write_timeout 24h
+			}
+		}
+	}
+
+	# --- Everything else: Next.js frontend ---
+	handle {
+		reverse_proxy web:3000
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
