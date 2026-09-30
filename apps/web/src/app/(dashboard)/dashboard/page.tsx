@@ -1,222 +1,302 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
-import { OverviewStats } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/analytics/stat-card';
+import { useEventStream } from '@/lib/hooks';
+import { OverviewStats, Event } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { severityTone, statusTone, toneDot } from '@/lib/status';
 import { SectionHeader } from '@/components/ui/section-header';
 import { SeverityBadge } from '@/components/ui/severity-badge';
 import { Button } from '@/components/ui/button';
-import { Activity, Video, AlertTriangle, Users, ArrowUpRight, Radio, ShieldAlert } from 'lucide-react';
-import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
+import { MetricDisplay } from '@/components/primitives/metric-display';
+import { Panel } from '@/components/primitives/panel';
+import { StatusIndicator } from '@/components/primitives/status-indicator';
+import { TechnicalLabel } from '@/components/primitives/technical-label';
+
+// Fallback refresh for values the event stream does not carry (camera status,
+// track summaries). New events trigger an immediate refresh instead.
+const POLL_MS = 30_000;
+const EVENT_REFRESH_DEBOUNCE_MS = 1_000;
+const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'];
+
+const utc = (iso: string) => new Date(iso).toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+const clock = (date: Date) => date.toISOString().substring(11, 19) + ' UTC';
+const humanize = (value: string) => value.replace(/_/g, ' ');
 
 export default function Dashboard() {
   const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const inFlight = useRef(false);
+  const { lastMessage, connected } = useEventStream();
 
-  useEffect(() => {
-    const fetchStats = () => {
-      api.getOverview()
-        .then(setStats)
-        .catch(console.error)
-        .finally(() => setLoading(false));
-    };
-
-    fetchStats();
-    const interval = setInterval(fetchStats, 15000);
-    return () => clearInterval(interval);
+  const fetchStats = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setLoading(true);
+    try {
+      const data = await api.getOverview();
+      setStats(data);
+      setError(null);
+      setUpdatedAt(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Request failed');
+    } finally {
+      inFlight.current = false;
+      setLoading(false);
+    }
   }, []);
 
-  if (loading && !stats) {
+  useEffect(() => {
+    fetchStats();
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchStats();
+    }, POLL_MS);
+    return () => clearInterval(interval);
+  }, [fetchStats]);
+
+  // A persisted event changes the counters and the recent list: refresh once per burst.
+  useEffect(() => {
+    if (!lastMessage) return;
+    const timeout = setTimeout(fetchStats, EVENT_REFRESH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [lastMessage, fetchStats]);
+
+  const header = (
+    <SectionHeader
+      tag="Overview"
+      title="Surveillance Overview"
+      description="Camera availability, today's event volume and the latest events across the cameras you own."
+      action={
+        <>
+          <StatusIndicator
+            variant="inline"
+            tone={connected ? 'success' : 'inactive'}
+            live={connected}
+            label={connected ? 'Event stream live' : `Event stream offline · refresh ${POLL_MS / 1000}s`}
+          />
+          <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading} className="min-h-11 sm:min-h-8">
+            <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', loading && 'motion-safe:animate-spin')} aria-hidden="true" />
+            {loading ? (stats ? 'Refreshing…' : 'Loading…') : 'Refresh'}
+          </Button>
+        </>
+      }
+    />
+  );
+
+  if (!stats && loading) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center space-y-3">
-        <div className="border-4 border-black bg-neo-yellow p-6 font-mono text-xs font-black uppercase tracking-wider shadow-neo-lg flex items-center space-x-3">
-          <span className="h-3 w-3 bg-black animate-ping" />
-          <span>SYNCHRONIZING OPERATIONAL TELEMETRY...</span>
-        </div>
+      <div className="space-y-6">
+        {header}
+        <OverviewSkeleton />
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="border-4 border-black bg-neo-red p-6 text-white shadow-neo-md">
-        <div className="flex items-center space-x-2 font-black text-sm uppercase tracking-wider">
-          <AlertTriangle className="h-5 w-5" strokeWidth={3} />
-          <span>Telemetric Link Interrupted — Failed to poll overview statistics</span>
+      <div className="space-y-6">
+        {header}
+        <div role="alert" className="flex flex-col gap-4 border border-border-strong bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center bg-danger text-danger-foreground">
+              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-body font-semibold">The overview could not be loaded.</p>
+              <p className="vg-telemetry mt-1 text-muted-foreground">{error}</p>
+            </div>
+          </div>
+          <Button variant="outline" onClick={fetchStats} className="min-h-11">Try again</Button>
         </div>
       </div>
     );
   }
 
+  // Known severities first, then any other value the API reports, so the total is never hidden.
+  const severityKeys = [
+    ...SEVERITY_ORDER,
+    ...Object.keys(stats.events_by_severity).filter(key => !SEVERITY_ORDER.includes(key)),
+  ];
+  const severityTotal = severityKeys.reduce((sum, key) => sum + (stats.events_by_severity[key] ?? 0), 0);
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <SectionHeader
-        tag="LIVE COMMAND CONSOLE"
-        title="Surveillance Overview"
-        description="Real-time multi-stream telemetry, detection counters, and stateful event monitoring across all active video feeds."
-        action={
-          <div className="flex items-center gap-2">
-            <Link href="/cameras">
-              <Button variant="secondary" size="sm" className="text-xs font-black">
-                <Video className="h-3.5 w-3.5 mr-1.5" strokeWidth={2.5} />
-                Cameras ({stats.total_cameras})
-              </Button>
-            </Link>
-            <Link href="/events">
-              <Button variant="destructive" size="sm" className="text-xs font-black">
-                <AlertTriangle className="h-3.5 w-3.5 mr-1.5" strokeWidth={2.5} />
-                Alerts ({stats.high_severity_events})
-              </Button>
-            </Link>
-          </div>
-        }
-      />
+      {header}
 
-      {/* Hero Metrics Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Monitored Nodes"
-          value={stats.total_cameras}
-          icon={<Video className="h-5 w-5 text-black" strokeWidth={2.5} />}
-          trend={`${stats.active_cameras} PIPELINES ONLINE`}
-          colorBand="yellow"
-        />
-        <StatCard
-          title="Incidents (24H)"
-          value={stats.events_today}
-          icon={<Activity className="h-5 w-5 text-white" strokeWidth={2.5} />}
-          trend="STATEFUL EVENTS LOGGED"
-          colorBand="black"
-        />
-        <StatCard
-          title="High Severity"
-          value={stats.high_severity_events}
-          icon={<AlertTriangle className="h-5 w-5 text-white" strokeWidth={2.5} />}
-          trend="BREACHES & ALERTS"
-          colorBand="red"
-        />
-        <StatCard
-          title="Tracked Entities"
-          value={stats.people_count}
-          icon={<Users className="h-5 w-5 text-black" strokeWidth={2.5} />}
-          trend="PERSISTENT OBJECT IDS"
-          colorBand="violet"
-        />
-      </div>
+      {error && updatedAt && (
+        <p role="alert" className="vg-telemetry flex items-center gap-2 border border-warning bg-warning/15 px-3 py-2 text-foreground">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Refresh failed ({error}). Showing data from {clock(updatedAt)}.
+        </p>
+      )}
 
-      {/* Two-Column Grid: Live Recent Incidents + Console Activity */}
-      <div className="grid gap-6 lg:grid-cols-12">
-        {/* Left 8 Cols: Recent Security Events */}
-        <Card className="lg:col-span-8 border-4 border-black bg-white shadow-neo-md">
-          <CardHeader className="bg-neo-cream p-4 border-b-2 border-black flex flex-row items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-neo-red border border-black animate-pulse" />
-              <CardTitle className="text-sm font-black uppercase tracking-wider text-black">
-                Recent Security Incidents
-              </CardTitle>
-            </div>
+      <section aria-label="Key figures">
+        <ul className="grid grid-cols-1 gap-px border border-border-strong bg-border min-[480px]:grid-cols-2 xl:grid-cols-4">
+          <MetricCell>
+            <MetricDisplay
+              label="Cameras online"
+              value={stats.active_cameras}
+              unit={`/ ${stats.total_cameras}`}
+              context={stats.total_cameras === 0 ? 'No cameras configured' : 'Status reported as online'}
+            />
+          </MetricCell>
+          <MetricCell>
+            <MetricDisplay label="Events today" value={stats.events_today} context="Since 00:00 UTC" />
+          </MetricCell>
+          <MetricCell alert={stats.high_severity_events > 0}>
+            <MetricDisplay label="High + critical" value={stats.high_severity_events} context="All time" />
+          </MetricCell>
+          <MetricCell>
+            <MetricDisplay
+              label="Person tracks today"
+              value={stats.people_count}
+              context={`${stats.vehicle_count} vehicle tracks · since 00:00 UTC`}
+            />
+          </MetricCell>
+        </ul>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-12">
+        <Panel
+          className="xl:col-span-8"
+          labelId="recent-events-heading"
+          title="Recent events"
+          meta={
             <Link
               href="/events"
-              className="text-[11px] font-mono font-bold uppercase underline hover:text-neo-red transition-colors flex items-center"
+              className="vg-label inline-flex min-h-11 items-center gap-1.5 text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
             >
-              Full Incident Log <ArrowUpRight className="h-3 w-3 ml-0.5" />
+              All events <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
-          </CardHeader>
-          <CardContent className="p-0 divide-y-2 divide-black/80">
-            {stats.recent_events.length === 0 ? (
-              <div className="p-8 text-center text-xs font-mono text-black/60 uppercase">
-                Zero security events recorded today. Surveillance perimeter secure.
+          }
+        >
+          {stats.recent_events.length === 0 ? (
+            <div className="space-y-3 px-4 py-10 text-center sm:px-6">
+              <p className="text-body font-semibold">No events recorded yet.</p>
+              <p className="mx-auto max-w-measure text-body-sm text-muted-foreground">
+                Events appear here when a rule fires on a camera with analytics running.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <Button asChild variant="outline" size="sm" className="min-h-11"><Link href="/cameras">Cameras</Link></Button>
+                <Button asChild variant="outline" size="sm" className="min-h-11"><Link href="/rules">Rules</Link></Button>
               </div>
+            </div>
+          ) : (
+            <ol className="divide-y divide-border">
+              {stats.recent_events.map(ev => <EventRow key={ev.id} event={ev} />)}
+            </ol>
+          )}
+          <p className="vg-telemetry border-t border-border px-4 py-2 text-muted-foreground">
+            Latest {stats.recent_events.length} · {updatedAt ? `updated ${clock(updatedAt)}` : ''}
+          </p>
+        </Panel>
+
+        <div className="grid content-start gap-6 md:grid-cols-2 xl:col-span-4 xl:grid-cols-1">
+          <Panel labelId="severity-heading" title="Events by severity" meta={<span className="vg-telemetry text-muted-foreground">All time</span>}>
+            {severityTotal === 0 ? (
+              <p className="px-4 py-8 text-center text-body-sm text-muted-foreground">No events recorded yet.</p>
             ) : (
-              stats.recent_events.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="p-3 sm:p-4 flex items-center justify-between gap-4 hover:bg-neo-cream transition-colors"
-                >
-                  <div className="flex items-start space-x-3 min-w-0">
-                    <div className="h-8 w-8 border-2 border-black bg-neo-yellow text-black flex items-center justify-center shrink-0 mt-0.5">
-                      <ShieldAlert className="h-4 w-4" strokeWidth={2.5} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <p className="font-black uppercase text-xs sm:text-sm tracking-tight text-black truncate">
-                          {ev.event_type.replace('_', ' ')}
-                        </p>
-                        {ev.track_id !== null && ev.track_id !== undefined && (
-                          <span className="font-mono text-[9px] bg-black text-white px-1 font-bold">
-                            ID #{ev.track_id}
-                          </span>
-                        )}
+              <dl className="divide-y divide-border">
+                {severityKeys.map(key => {
+                  const count = stats.events_by_severity[key] ?? 0;
+                  return (
+                    <div key={key} className="grid grid-cols-[6rem_1fr_auto] items-center gap-3 px-4 py-3">
+                      <dt className="vg-label inline-flex items-center gap-2 text-foreground">
+                        <span className={cn('h-2 w-2 shrink-0', toneDot[severityTone(key)])} aria-hidden="true" />
+                        {key}
+                      </dt>
+                      <div className="h-1.5 bg-muted" aria-hidden="true">
+                        <div className={cn('h-full', toneDot[severityTone(key)])} style={{ width: `${(count / severityTotal) * 100}%` }} />
                       </div>
-                      <p className="text-[10px] sm:text-xs font-mono text-black/60 mt-0.5">
-                        {new Date(ev.created_at).toISOString().replace('T', ' ').substring(0, 19)} UTC · Node: {ev.camera_id?.substring(0, 8)}...
-                      </p>
+                      <dd className="vg-telemetry min-w-[3ch] text-right text-foreground">{count}</dd>
                     </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <SeverityBadge severity={ev.severity} />
-                    <Link
-                      href={`/events/${ev.id}`}
-                      className="border border-black bg-white hover:bg-neo-yellow p-1 shadow-[2px_2px_0px_#000000] text-black"
-                      title="Inspect Evidence"
-                    >
-                      <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </Link>
-                  </div>
-                </div>
-              ))
+                  );
+                })}
+              </dl>
             )}
-          </CardContent>
-        </Card>
+          </Panel>
 
-        {/* Right 4 Cols: Technical Diagnostic Status */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="border-4 border-black bg-white shadow-neo-md">
-            <CardHeader className="bg-neo-yellow p-4 border-b-2 border-black">
-              <CardTitle className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
-                <Radio className="h-4 w-4" strokeWidth={2.5} />
-                Subsystem Integrity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between border-b border-black/30 pb-2">
-                <span className="text-black/70 font-bold">DETECTOR:</span>
-                <span className="font-black bg-neo-green px-1.5 py-0.5 border border-black text-[10px]">
-                  YOLOv8n / PyTorch
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-b border-black/30 pb-2">
-                <span className="text-black/70 font-bold">TRACKER:</span>
-                <span className="font-black bg-neo-green px-1.5 py-0.5 border border-black text-[10px]">
-                  ByteTrack / Kalman
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-b border-black/30 pb-2">
-                <span className="text-black/70 font-bold">BACKPRESSURE:</span>
-                <span className="font-black bg-white px-1.5 py-0.5 border border-black text-[10px]">
-                  Bounded FIFO (Drop Old)
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-black/70 font-bold">EVIDENCE VAULT:</span>
-                <span className="font-black bg-neo-cream px-1.5 py-0.5 border border-black text-[10px]">
-                  JPEG + PostgreMeta
-                </span>
-              </div>
-
-              <div className="pt-2">
-                <Link href="/system" className="block w-full">
-                  <Button variant="outline" size="sm" className="w-full text-xs font-black">
-                    Diagnostic Telemetry Console
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+          <Panel labelId="diagnostics-heading" title="Diagnostics">
+            <div className="space-y-3 p-4">
+              <p className="text-body-sm text-muted-foreground">
+                Worker health, stream throughput and the loaded models are reported on the System page.
+              </p>
+              <Button asChild variant="outline" className="min-h-11 w-full">
+                <Link href="/system">Open system diagnostics</Link>
+              </Button>
+            </div>
+          </Panel>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCell({ alert = false, children }: { alert?: boolean; children: React.ReactNode }) {
+  return (
+    <li className={cn('relative bg-surface p-4 sm:p-5', alert && 'before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:bg-danger')}>
+      {children}
+    </li>
+  );
+}
+
+function EventRow({ event }: { event: Event }) {
+  const hasTrack = event.track_id !== null && event.track_id !== undefined;
+  return (
+    <li>
+      <Link
+        href={`/events/${event.id}`}
+        className="group flex min-h-11 flex-col gap-2 px-4 py-3 transition-colors duration-micro ease-standard hover:bg-muted focus-visible:outline-offset-[-2px] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-body font-semibold capitalize">{humanize(event.event_type)}</p>
+          <p className="vg-telemetry mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
+            <time dateTime={event.started_at}>{utc(event.started_at)}</time>
+            <span>CAM {event.camera_id.substring(0, 8)}</span>
+            {event.object_class && <span>{event.object_class}</span>}
+            {hasTrack && <span>TRACK #{event.track_id}</span>}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <SeverityBadge severity={event.severity} />
+          <StatusIndicator variant="inline" tone={statusTone(event.status)} label={event.status} />
+          <ArrowRight
+            className="h-4 w-4 text-muted-foreground transition-transform duration-micro ease-standard group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </div>
+      </Link>
+    </li>
+  );
+}
+
+function OverviewSkeleton() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading overview" className="space-y-6">
+      <div className="grid grid-cols-1 gap-px border border-border-strong bg-border min-[480px]:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="space-y-3 bg-surface p-4 sm:p-5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-10 w-16" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-6 xl:grid-cols-12">
+        <div className="space-y-px border border-border-strong bg-surface xl:col-span-8">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="space-y-2 p-4">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-64 max-w-full" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-56 border border-border xl:col-span-4" />
       </div>
     </div>
   );

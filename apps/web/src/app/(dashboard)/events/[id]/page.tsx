@@ -1,239 +1,266 @@
 'use client';
-import { useEffect, useState, use, useCallback } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Check, Eye, ShieldAlert, X } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Event } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { SeverityBadge } from '@/components/ui/severity-badge';
-import { StatusBadge } from '@/components/ui/status-badge';
+import type { AnalyticsRule, Camera, Event, VirtualLine, Zone } from '@/lib/types';
+import { statusTone } from '@/lib/status';
 import { Button } from '@/components/ui/button';
 import { SectionHeader } from '@/components/ui/section-header';
-import { Loader2, CheckCircle, Clock, ArrowLeft, Camera, ShieldAlert, FileText, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
+import { SeverityBadge } from '@/components/ui/severity-badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Panel } from '@/components/primitives/panel';
+import { StatusIndicator } from '@/components/primitives/status-indicator';
+import { ActionAlert, LoadErrorPanel } from '@/components/console/feedback';
+import { duration, errorMessage, shortId, utcStamp } from '@/components/console/format';
+import { ruleTypeLabel } from '@/components/console/vocabulary';
+import { EvidenceFrame } from '@/components/events/evidence-frame';
+import { TriggerDetails } from '@/components/events/trigger-details';
 
-export default function EventDetail({ params }: { params: Promise<{ id: string }> }) {
-  const unwrappedParams = use(params);
+type StatusAction = { status: string; label: string; pending: string; icon: typeof Check; variant: 'default' | 'outline' };
+
+const ACTIONS: StatusAction[] = [
+  { status: 'acknowledged', label: 'Acknowledge', pending: 'Acknowledging…', icon: Eye, variant: 'outline' },
+  { status: 'resolved', label: 'Resolve', pending: 'Resolving…', icon: Check, variant: 'default' },
+  { status: 'dismissed', label: 'Dismiss', pending: 'Dismissing…', icon: X, variant: 'outline' },
+];
+
+/** Names for the ids on an event. Each lookup may fail on its own; the ids still show. */
+interface Related { camera?: Camera; rule?: AnalyticsRule; zone?: Zone; line?: VirtualLine }
+
+export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updating, setUpdating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [related, setRelated] = useState<Related>({});
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
 
-  const fetchEvent = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    api.getEvent(unwrappedParams.id)
-      .then(setEvent)
-      .catch(err => {
-        console.error(err);
-        setError('Failed to load incident record. Verify network connection.');
-      })
-      .finally(() => setLoading(false));
-  }, [unwrappedParams.id]);
-
-  useEffect(() => {
-    fetchEvent();
-  }, [fetchEvent]);
-
-  const handleUpdateStatus = async (status: string) => {
-    setUpdating(true);
     try {
-      await api.updateEventStatus(unwrappedParams.id, status);
-      fetchEvent();
-    } catch (err) {
-      console.error(err);
+      setEvent(await api.getEvent(id));
+      setLoadError(null);
+    } catch (cause) {
+      setLoadError(errorMessage(cause, 'The event could not be loaded.'));
     } finally {
-      setUpdating(false);
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const cameraId = event?.camera_id;
+  useEffect(() => {
+    if (!cameraId) return;
+    let cancelled = false;
+    Promise.allSettled([api.getCamera(cameraId), api.getRules(cameraId), api.getZones(cameraId), api.getLines(cameraId)])
+      .then(([camera, rules, zones, lines]) => {
+        if (cancelled) return;
+        setRelated({
+          camera: camera.status === 'fulfilled' ? camera.value : undefined,
+          rule: rules.status === 'fulfilled' ? rules.value.find(r => r.id === event?.rule_id) : undefined,
+          zone: zones.status === 'fulfilled' ? zones.value.find(z => z.id === event?.zone_id) : undefined,
+          line: lines.status === 'fulfilled' ? lines.value.find(l => l.id === event?.line_id) : undefined,
+        });
+      });
+    return () => { cancelled = true; };
+    // The ids on an event never change; reload only when the camera does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraId]);
+
+  const changeStatus = async (action: StatusAction) => {
+    setPendingStatus(action.status);
+    setActionError(null);
+    try {
+      setEvent(await api.updateEventStatus(id, action.status));
+      setAnnouncement(`Event status changed to ${action.status}.`);
+    } catch (cause) {
+      setActionError(errorMessage(cause, 'The status could not be changed.'));
+    } finally {
+      setPendingStatus(null);
     }
   };
 
-  if (loading) {
+  const breadcrumb = (
+    <nav aria-label="Breadcrumb">
+      <ol className="vg-label flex flex-wrap items-center gap-x-2 text-muted-foreground">
+        <li>
+          <Link href="/events" className="inline-flex min-h-11 items-center underline decoration-1 underline-offset-4 hover:decoration-2 sm:min-h-8">Events</Link>
+        </li>
+        <li aria-hidden="true">/</li>
+        <li><span aria-current="page" className="text-foreground">Event {shortId(id)}</span></li>
+      </ol>
+    </nav>
+  );
+
+  if (!event) {
     return (
-      <div className="flex h-64 items-center justify-center border-4 border-black bg-white shadow-neo-sm font-mono text-xs font-black uppercase">
-        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        RETRIEVING INCIDENT EVIDENCE DOSSIER...
+      <div className="space-y-6">
+        {breadcrumb}
+        {loadError && !loading
+          ? <LoadErrorPanel title="The event could not be loaded." detail={loadError} onRetry={load} />
+          : <DetailSkeleton />}
       </div>
     );
   }
 
-  if (error || !event) {
-    return (
-      <div className="border-4 border-black bg-neo-red p-6 text-white shadow-neo-md font-mono text-xs font-black uppercase">
-        {error || 'INCIDENT RECORD NOT FOUND'}
-      </div>
-    );
-  }
+  const cameraName = related.camera?.name ?? `Camera ${shortId(event.camera_id)}`;
+  const hasTrack = event.track_id !== null && event.track_id !== undefined;
+  const subject = [event.object_class, hasTrack ? `track #${event.track_id}` : null].filter(Boolean).join(' ');
+  const evidences = event.evidences ?? [];
+  const missingPpe: string[] = Array.isArray(event.metadata?.missing_ppe) ? event.metadata.missing_ppe : [];
+  const available = ACTIONS.filter(a => a.status !== event.status && !(a.status === 'acknowledged' && event.status !== 'active'));
+  const geometryLabel = event.zone_id
+    ? `zone “${related.zone?.name ?? shortId(event.zone_id)}”`
+    : event.line_id ? `line “${related.line?.name ?? shortId(event.line_id)}”` : null;
 
   return (
     <div className="space-y-6">
+      {breadcrumb}
       <SectionHeader
-        tag={`INCIDENT #${event.id.substring(0, 8)}`}
-        title={event.event_type.replace('_', ' ')}
-        description={`Logged at ${new Date(event.created_at).toISOString().replace('T', ' ').substring(0, 19)} UTC · Camera Node: ${event.camera_id}`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/events">
-              <Button variant="outline" size="sm" className="text-xs font-black">
-                <ArrowLeft className="h-3.5 w-3.5 mr-1" strokeWidth={2.5} />
-                Incident Log
-              </Button>
-            </Link>
-
-            {event.status !== 'acknowledged' && event.status !== 'resolved' && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handleUpdateStatus('acknowledged')}
-                disabled={updating}
-                className="text-xs font-black"
-              >
-                {updating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Clock className="mr-1.5 h-3.5 w-3.5" strokeWidth={2.5} />}
-                Acknowledge Incident
-              </Button>
-            )}
-
-            {event.status !== 'resolved' && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => handleUpdateStatus('resolved')}
-                disabled={updating}
-                className="text-xs font-black bg-black text-white hover:bg-neo-green hover:text-black"
-              >
-                {updating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="mr-1.5 h-3.5 w-3.5" strokeWidth={2.5} />}
-                Resolve & Close
-              </Button>
-            )}
-          </div>
-        }
+        tag={`Event ${shortId(event.id)}`}
+        title={ruleTypeLabel(event.event_type)}
+        description={`${subject ? `${subject[0].toUpperCase()}${subject.slice(1)} on` : 'On'} ${cameraName}${geometryLabel ? `, ${geometryLabel}` : ''}. Started ${utcStamp(event.started_at)}.`}
       />
 
-      {/* PPE Safety Violation Alert Banner */}
-      {(event.event_type === 'ppe_violation' || event.metadata?.missing_ppe) && (
-        <div className="border-4 border-black bg-neo-red p-4 sm:p-5 text-white shadow-neo-md space-y-2">
-          <div className="flex items-center gap-2 font-mono text-xs font-black uppercase tracking-wider text-neo-yellow">
-            <ShieldAlert className="h-5 w-5" strokeWidth={2.5} />
-            PPE SAFETY COMPLIANCE VIOLATION CONFIRMED
-          </div>
-          <div className="font-mono text-sm sm:text-base font-bold">
-            Required Safety Gear Not Detected: <span className="underline uppercase tracking-wide text-neo-yellow">{((event.metadata?.missing_ppe as string[]) || []).join(', ') || 'REQUIRED PPE'}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-white/90 pt-1 border-t border-white/30">
-            {event.metadata?.observed_ppe && (
-              <div>
-                <span className="font-bold">OBSERVED PPE:</span>{' '}
-                {((event.metadata?.observed_ppe as string[]) || []).join(', ') || 'None'}
-              </div>
-            )}
-            {event.metadata?.confirmation_duration_ms && (
-              <div>
-                <span className="font-bold">CONFIRMATION DURATION:</span>{' '}
-                {(event.metadata.confirmation_duration_ms / 1000).toFixed(1)}s
-              </div>
-            )}
-            <div>
-              <span className="font-bold">MODEL VERSION:</span> {event.metadata?.model_version || 'vigilai_ppe_v2'}
-            </div>
-          </div>
+      <p role="status" className="sr-only">{announcement}</p>
+
+      {event.event_type === 'ppe_violation' && missingPpe.length > 0 && (
+        <div className="flex items-start gap-3 border border-border-strong bg-danger px-4 py-3 text-danger-foreground">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <p className="text-body">
+            <span className="font-semibold">Missing equipment: {missingPpe.join(', ')}.</span>{' '}
+            Confirmed by the PPE pipeline over its confirmation window; this is a model decision, not a certified safety check.
+          </p>
         </div>
       )}
 
-      {/* Two Columns: Information Breakdown + Structured Metadata */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-6 border-4 border-black bg-white shadow-neo-md">
-          <CardHeader className="bg-neo-yellow p-4 border-b-2 border-black">
-            <CardTitle className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
-              <ShieldAlert className="h-4 w-4" strokeWidth={2.5} />
-              Incident Identification
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 space-y-3 font-mono text-xs">
-            <div className="flex justify-between border-b border-black/30 pb-2">
-              <span className="text-black/70 font-bold">SEVERITY RANKING:</span>
-              <SeverityBadge severity={event.severity} />
-            </div>
+      <div className="grid gap-6 xl:grid-cols-12">
+        <div className="min-w-0 space-y-6 xl:col-span-8">
+          <Panel
+            labelId="evidence-heading"
+            title="Evidence"
+            meta={<span className="vg-telemetry text-muted-foreground">{evidences.length} {evidences.length === 1 ? 'snapshot' : 'snapshots'}</span>}
+          >
+            {evidences.length === 0 ? (
+              <div className="space-y-2 px-4 py-10 text-center sm:px-6">
+                <p className="text-body font-semibold">No evidence was stored for this event.</p>
+                <p className="mx-auto max-w-measure text-body-sm text-muted-foreground">
+                  The worker saves an annotated snapshot when an event fires. None is linked to this event, so there is nothing to show.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 p-4 lg:grid-cols-2 [&>*:only-child]:lg:col-span-2">
+                {evidences.map((evidence, index) => (
+                  <EvidenceFrame
+                    key={evidence.id}
+                    eventId={event.id}
+                    evidence={evidence}
+                    index={index}
+                    alt={`Annotated snapshot of the ${ruleTypeLabel(event.event_type).toLowerCase()} event${subject ? ` for ${subject}` : ''} on ${cameraName}${geometryLabel ? `, with the ${geometryLabel.split(' ')[0]} outlined` : ''}.`}
+                  />
+                ))}
+              </div>
+            )}
+          </Panel>
 
-            <div className="flex justify-between border-b border-black/30 pb-2">
-              <span className="text-black/70 font-bold">LIFECYCLE STATUS:</span>
-              <StatusBadge status={event.status} showPulse={false} />
-            </div>
+          <TriggerDetails event={event} />
+        </div>
 
-            <div className="flex justify-between border-b border-black/30 pb-2">
-              <span className="text-black/70 font-bold">TRACKED OBJECT ID:</span>
-              <span className="font-black bg-neo-muted px-1.5 border border-black/40">
-                {event.track_id !== null && event.track_id !== undefined ? `TRK #${event.track_id}` : 'N/A (Spatial / Density)'}
-              </span>
-            </div>
-
-            <div className="flex justify-between border-b border-black/30 pb-2">
-              <span className="text-black/70 font-bold">DETECTION CLASS:</span>
-              <span className="font-black uppercase text-black">
-                {event.object_class || (event.metadata?.class_name ?? 'NOT_SPECIFIED')}
-              </span>
-            </div>
-
-            <div className="flex justify-between border-b border-black/30 pb-2">
-              <span className="text-black/70 font-bold">TARGET CAMERA NODE:</span>
-              <Link
-                href={`/cameras/${event.camera_id}`}
-                className="font-black underline hover:text-neo-red truncate max-w-[200px]"
-              >
-                {event.camera_id}
-              </Link>
-            </div>
-
-            <div className="flex justify-between pt-1">
-              <span className="text-black/70 font-bold">UTC LOG TIMESTAMP:</span>
-              <span className="font-bold text-black">
-                {new Date(event.created_at).toISOString().replace('T', ' ').substring(0, 19)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Structured Metadata Inspector */}
-        <Card className="lg:col-span-6 border-4 border-black bg-white shadow-neo-md">
-          <CardHeader className="bg-neo-cream p-4 border-b-2 border-black">
-            <CardTitle className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
-              <FileText className="h-4 w-4" strokeWidth={2.5} />
-              Telemetry Context Metadata
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <pre className="border-2 border-black bg-neo-bg p-3 font-mono text-[11px] text-black overflow-auto max-h-[220px] shadow-[2px_2px_0px_#000000]">
-              {JSON.stringify(event.metadata, null, 2) || '{\n  "metadata": "None captured"\n}'}
-            </pre>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Captured Evidence Section */}
-      {event.evidences && event.evidences.length > 0 && (
-        <Card className="border-4 border-black bg-white shadow-neo-md">
-          <CardHeader className="bg-black text-white p-4 border-b-2 border-black">
-            <CardTitle className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <ImageIcon className="h-4 w-4 text-neo-yellow" strokeWidth={2.5} />
-              Preserved Surveillance Evidence ({event.evidences.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {event.evidences.map((evItem) => (
-                <div key={evItem.id} className="border-2 border-black bg-white shadow-neo-sm overflow-hidden flex flex-col">
-                  <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-                    <img
-                      src={`/api/v1/events/${event.id}/evidence/${evItem.id}/file`}
-                      alt="Annotated Forensic Snapshot"
-                      className="object-contain w-full h-full"
-                    />
-                  </div>
-                  <div className="p-2.5 bg-neo-cream border-t-2 border-black font-mono text-[10px] font-black uppercase flex items-center justify-between">
-                    <span>{evItem.evidence_type} SNAPSHOT</span>
-                    <span className="text-black/60">TRK #{event.track_id ?? 'N/A'}</span>
-                  </div>
+        <div className="grid content-start gap-6 md:grid-cols-2 xl:col-span-4 xl:grid-cols-1">
+          <Panel labelId="status-heading" title="Status" meta={<StatusIndicator tone={statusTone(event.status)} label={event.status} />}>
+            <div className="space-y-4 p-4">
+              <p className="text-body-sm text-muted-foreground">
+                The worker marks an event resolved when its condition ends. Acknowledged and dismissed events keep that status.
+              </p>
+              {available.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {available.map(action => {
+                    const Icon = action.icon;
+                    return (
+                      <Button
+                        key={action.status}
+                        variant={action.variant}
+                        onClick={() => changeStatus(action)}
+                        disabled={pendingStatus !== null}
+                        className="min-h-11 sm:min-h-10"
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        {pendingStatus === action.status ? action.pending : action.label}
+                      </Button>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
+              <ActionAlert message={actionError} onDismiss={() => setActionError(null)} />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </Panel>
+
+          <Panel labelId="details-heading" title="Details">
+            <dl className="divide-y divide-border text-body-sm">
+              <Row term="Severity"><SeverityBadge severity={event.severity} /></Row>
+              <Row term="Started"><time dateTime={event.started_at} className="vg-telemetry">{utcStamp(event.started_at)}</time></Row>
+              <Row term="Ended">
+                {event.ended_at ? (
+                  <span className="vg-telemetry">
+                    <time dateTime={event.ended_at}>{utcStamp(event.ended_at)}</time>
+                    <span className="block text-muted-foreground">
+                      after {duration((Date.parse(event.ended_at) - Date.parse(event.started_at)) / 1000)}
+                    </span>
+                  </span>
+                ) : <span className="text-muted-foreground">Not ended</span>}
+              </Row>
+              <Row term="Camera">
+                <Link href={`/cameras/${event.camera_id}`} className="inline-flex min-h-11 items-center gap-1 break-all underline decoration-1 underline-offset-4 hover:decoration-2 sm:min-h-0">
+                  {cameraName}
+                </Link>
+              </Row>
+              <Row term="Rule">
+                {event.rule_id ? (
+                  <Link href={`/rules?camera=${event.camera_id}`} className="inline-flex min-h-11 items-center gap-1 underline decoration-1 underline-offset-4 hover:decoration-2 sm:min-h-0">
+                    {related.rule?.name ?? `Rule ${shortId(event.rule_id)}`}
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                ) : <span className="text-muted-foreground">Rule deleted</span>}
+              </Row>
+              {event.zone_id && <Row term="Zone">{related.zone?.name ?? <span className="vg-telemetry">{shortId(event.zone_id)}</span>}</Row>}
+              {event.line_id && <Row term="Line">{related.line?.name ?? <span className="vg-telemetry">{shortId(event.line_id)}</span>}</Row>}
+              <Row term="Object class">{event.object_class ?? <span className="text-muted-foreground">None (zone-level event)</span>}</Row>
+              <Row term="Track">{hasTrack ? <span className="vg-telemetry">#{event.track_id}</span> : <span className="text-muted-foreground">None (zone-level event)</span>}</Row>
+              <Row term="Fingerprint"><span className="vg-telemetry break-all">{event.fingerprint}</span></Row>
+              <Row term="Event ID"><span className="vg-telemetry break-all">{event.id}</span></Row>
+            </dl>
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ term, children }: { term: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-baseline gap-3 px-4 py-2.5">
+      <dt className="vg-label text-muted-foreground">{term}</dt>
+      <dd className="min-w-0">{children}</dd>
+    </div>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading event" className="space-y-6">
+      <div className="space-y-3 border-b border-border-strong pb-5">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-9 w-64 max-w-full" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-12">
+        <Skeleton className="aspect-video border border-border xl:col-span-8" />
+        <Skeleton className="h-72 border border-border xl:col-span-4" />
+      </div>
     </div>
   );
 }

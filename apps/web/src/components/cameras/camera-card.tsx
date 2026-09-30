@@ -1,79 +1,77 @@
-import { Camera } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { Button } from '@/components/ui/button';
-import { Video, Activity, Eye, Play, Square } from 'lucide-react';
 import Link from 'next/link';
+import { ArrowRight, Play, SlidersHorizontal, Square } from 'lucide-react';
+import type { Camera } from '@/lib/types';
+import { statusTone } from '@/lib/status';
+import { Button } from '@/components/ui/button';
+import { StatusIndicator } from '@/components/primitives/status-indicator';
+import { sourceLabel, sourceSummary } from './camera-format';
 
-export function CameraCard({ camera, onToggleAnalytics }: { camera: Camera, onToggleAnalytics?: (c: Camera) => void }) {
+interface CameraCardProps {
+  camera: Camera;
+  /** Set while a start/stop request for this camera is in flight. */
+  pending?: boolean;
+  onToggleAnalytics: (camera: Camera) => void;
+}
+
+export function CameraCard({ camera, pending = false, onToggleAnalytics }: CameraCardProps) {
+  const running = camera.analytics_enabled;
+  const headingId = `camera-${camera.id}-name`;
   return (
-    <Card className="border-4 border-black bg-white shadow-neo-sm hover:shadow-neo-md transition-all rounded-none flex flex-col justify-between">
-      <div>
-        <CardHeader className="p-3 bg-neo-yellow border-b-2 border-black flex flex-row items-center justify-between gap-2">
-          <Link href={`/cameras/${camera.id}`} className="hover:underline flex-1 min-w-0">
-            <CardTitle className="text-base font-black truncate text-black flex items-center gap-1.5">
-              <Video className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+    <li className="flex min-w-0 flex-col bg-surface">
+      <article aria-labelledby={headingId} className="flex flex-1 flex-col">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <h2 id={headingId} className="min-w-0 font-display text-title font-semibold">
+            <Link
+              href={`/cameras/${camera.id}`}
+              className="group inline-flex max-w-full items-center gap-1.5 underline decoration-transparent decoration-1 underline-offset-4 transition-colors duration-micro hover:decoration-current"
+            >
               <span className="truncate">{camera.name}</span>
-            </CardTitle>
-          </Link>
-          <StatusBadge status={camera.status} />
-        </CardHeader>
+              <ArrowRight className="h-4 w-4 shrink-0 transition-transform duration-micro ease-standard group-hover:translate-x-0.5" aria-hidden="true" />
+            </Link>
+          </h2>
+          <StatusIndicator tone={statusTone(camera.status)} label={camera.status} live={camera.status === 'online'} className="shrink-0" />
+        </div>
 
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-black/60 font-bold uppercase">SOURCE TYPE:</span>
-            <span className="bg-neo-cream border border-black px-2 py-0.5 font-bold uppercase text-black">
-              {camera.source_type.replace('_', ' ')}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-black/60 font-bold uppercase">RESOLUTION:</span>
-            <span className="font-bold text-black">
-              {camera.width && camera.height ? `${camera.width}×${camera.height}` : 'AUTO DETECT'}
-            </span>
-          </div>
-
-          {camera.fps !== null && camera.fps !== undefined && (
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-black/60 font-bold uppercase">CURRENT FPS:</span>
-              <span className="font-bold text-black bg-neo-muted px-1.5 py-0.5 border border-black/30">
-                {camera.fps} FPS
-              </span>
-            </div>
+        <dl className="grid flex-1 grid-cols-[6.5rem_1fr] content-start gap-x-3 gap-y-2 px-4 py-4 text-body-sm">
+          <dt className="vg-label text-muted-foreground">Source</dt>
+          <dd className="min-w-0">
+            <span className="font-medium">{sourceLabel(camera.source_type)}</span>
+            <span className="vg-telemetry block truncate text-muted-foreground" title={sourceSummary(camera)}>{sourceSummary(camera)}</span>
+          </dd>
+          <dt className="vg-label text-muted-foreground">Analytics</dt>
+          <dd>
+            <StatusIndicator variant="inline" tone={running ? 'success' : 'inactive'} label={running ? 'Enabled' : 'Stopped'} />
+          </dd>
+          <dt className="vg-label text-muted-foreground">Detector</dt>
+          <dd className="vg-telemetry truncate">{camera.model_id ?? 'Default'}</dd>
+          {camera.status_message && camera.status !== 'online' && (
+            <>
+              <dt className="vg-label text-muted-foreground">Worker</dt>
+              <dd className="text-muted-foreground">{camera.status_message}</dd>
+            </>
           )}
-        </CardContent>
-      </div>
+        </dl>
 
-      <CardFooter className="p-3 border-t-2 border-black bg-neo-cream/50 flex items-center justify-between gap-2">
-        <Link href={`/cameras/${camera.id}`} className="flex-1">
-          <Button variant="outline" size="sm" className="w-full text-xs font-black">
-            <Eye className="h-3.5 w-3.5 mr-1.5" strokeWidth={2.5} />
-            Monitor Feed
+        <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
+          <Button asChild variant="outline" size="sm" className="min-h-11 sm:min-h-9">
+            <Link href={`/cameras/${camera.id}/configure`} aria-label={`Configure zones and lines for ${camera.name}`}>
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              Geometry
+            </Link>
           </Button>
-        </Link>
-
-        {onToggleAnalytics && (
           <Button
             size="sm"
-            variant={camera.analytics_enabled ? "destructive" : "secondary"}
+            variant={running ? 'outline' : 'default'}
             onClick={() => onToggleAnalytics(camera)}
-            className="text-xs font-black shrink-0"
+            disabled={pending}
+            aria-label={`${running ? 'Stop' : 'Start'} analytics for ${camera.name}`}
+            className="min-h-11 sm:min-h-9"
           >
-            {camera.analytics_enabled ? (
-              <>
-                <Square className="h-3.5 w-3.5 mr-1" strokeWidth={2.5} />
-                STOP
-              </>
-            ) : (
-              <>
-                <Play className="h-3.5 w-3.5 mr-1" strokeWidth={2.5} />
-                START
-              </>
-            )}
+            {running ? <Square className="h-3.5 w-3.5" aria-hidden="true" /> : <Play className="h-3.5 w-3.5" aria-hidden="true" />}
+            {pending ? (running ? 'Stopping…' : 'Starting…') : running ? 'Stop' : 'Start'}
           </Button>
-        )}
-      </CardFooter>
-    </Card>
+        </div>
+      </article>
+    </li>
   );
 }

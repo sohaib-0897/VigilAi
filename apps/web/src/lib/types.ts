@@ -3,10 +3,13 @@ export interface Camera { id: string; name: string; description?: string; source
 export interface Zone { id: string; camera_id: string; name: string; zone_type: string; points: Point[]; color: string; enabled: boolean; }
 export interface Point { x: number; y: number; }
 export interface VirtualLine { id: string; camera_id: string; name: string; start_point: Point; end_point: Point; direction_mode: string; color: string; enabled: boolean; }
-export interface AnalyticsRule { id: string; camera_id: string; name: string; rule_type: string; enabled: boolean; severity: string; object_classes?: string[]; zone_id?: string; line_id?: string; threshold_value?: number; cooldown_seconds: number; configuration?: Record<string, any>; }
+export interface AnalyticsRule { id: string; camera_id: string; name: string; rule_type: string; enabled: boolean; severity: string; object_classes?: string[] | null; zone_id?: string | null; line_id?: string | null; threshold_value?: number | null; cooldown_seconds: number; configuration?: Record<string, any> | null; }
 export interface Event { id: string; camera_id: string; rule_id?: string; event_type: string; severity: string; object_class?: string; track_id?: number; zone_id?: string; line_id?: string; started_at: string; ended_at?: string; metadata?: any; status: string; evidences?: Evidence[]; fingerprint: string; created_at: string; }
-export interface Evidence { id: string; event_id: string; evidence_type: string; file_path: string; mime_type: string; width?: number; height?: number; }
+export interface Evidence { id: string; event_id?: string; evidence_type: string; file_path: string; file_size?: number | null; mime_type: string; width?: number | null; height?: number | null; }
 export interface PaginatedResponse<T> { items: T[]; total: number; page: number; page_size: number; pages: number; }
 export interface OverviewStats { total_cameras: number; active_cameras: number; events_today: number; high_severity_events: number; events_by_severity: Record<string, number>; people_count: number; vehicle_count: number; recent_events: Event[]; }
-export interface SystemMetrics { workers: number; cpu_usage_percent?: number | null; memory_usage_percent?: number | null; active_streams?: number | null; frames_processed?: number | null; frames_dropped?: number | null; pipeline_fps?: number | null; }
+export interface SystemMetrics { workers: number; events_per_minute?: number | null; cpu_usage_percent?: number | null; memory_usage_percent?: number | null; active_streams?: number | null; frames_processed?: number | null; frames_dropped?: number | null; pipeline_fps?: number | null; }
 export interface ModelMetadata { id: string; name: string; version: string; task: string; framework: string; format: string; img_size: number; classes: string[]; is_active: boolean; is_default: boolean; description: string; metrics?: Record<string, any>; }
+export interface SystemHealth { status: string; version: string; details: Record<string, string>; }
+/** One `date_trunc` bucket from `/analytics/timeseries`; buckets with no events are omitted by the API. */
+export interface TimeseriesBucket { period: string; count: number; }

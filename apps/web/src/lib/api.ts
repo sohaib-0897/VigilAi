@@ -1,4 +1,4 @@
-import { PaginatedResponse, OverviewStats, Event, Camera, Zone, VirtualLine, AnalyticsRule, User, ModelMetadata } from './types';
+import { PaginatedResponse, OverviewStats, Event, Camera, Zone, VirtualLine, AnalyticsRule, User, ModelMetadata, SystemHealth, SystemMetrics, TimeseriesBucket } from './types';
 
 const API_BASE = '/api/v1';
 
@@ -76,7 +76,7 @@ class ApiClient {
   async updateRule(cameraId: string, ruleId: string, data: Partial<AnalyticsRule>): Promise<AnalyticsRule> { return this.request(`/cameras/${cameraId}/rules/${ruleId}`, { method: 'PUT', body: JSON.stringify(data) }); }
   async deleteRule(cameraId: string, ruleId: string) { return this.request(`/cameras/${cameraId}/rules/${ruleId}`, { method: 'DELETE' }); }
 
-  async getEvents(filters?: any): Promise<PaginatedResponse<Event>> {
+  async getEvents(filters?: Record<string, string>): Promise<PaginatedResponse<Event>> {
     const qs = filters ? new URLSearchParams(filters).toString() : '';
     return this.request(`/events${qs ? '?' + qs : ''}`);
   }
@@ -93,22 +93,25 @@ class ApiClient {
     const res = await fetch(`${API_BASE}/events/export?${params.toString()}`, {
       credentials: 'include',
     });
-    if (!res.ok) throw new Error('Failed to export events');
+    if (!res.ok) {
+      const error = await res.json().catch(() => null);
+      throw new ApiError(res.status, typeof error?.detail === 'string' ? error.detail : `Export failed (HTTP ${res.status})`);
+    }
     return res.blob();
   }
 
   async getOverview(): Promise<OverviewStats> { return this.request('/analytics/overview'); }
-  async getTimeseries(params?: any): Promise<{period: string; count: number}[]> {
+  async getTimeseries(params?: Record<string, string>): Promise<TimeseriesBucket[]> {
     const qs = params ? new URLSearchParams(params).toString() : '';
     return this.request(`/analytics/timeseries${qs ? '?' + qs : ''}`);
   }
-  async getDistribution(params?: any): Promise<Record<string, number>> {
+  async getDistribution(params?: Record<string, string>): Promise<Record<string, number>> {
     const qs = params ? new URLSearchParams(params).toString() : '';
     return this.request(`/analytics/distribution${qs ? '?' + qs : ''}`);
   }
 
-  async getHealth(): Promise<any> { return this.request('/system/health'); }
-  async getMetrics(): Promise<any> { return this.request('/system/metrics'); }
+  async getHealth(): Promise<SystemHealth> { return this.request('/system/health'); }
+  async getMetrics(): Promise<SystemMetrics> { return this.request('/system/metrics'); }
   async getModels(): Promise<ModelMetadata[]> { return this.request('/models'); }
   async getModel(id: string): Promise<ModelMetadata> { return this.request(`/models/${id}`); }
 }

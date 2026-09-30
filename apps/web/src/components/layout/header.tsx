@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { TechnicalLabel } from '@/components/primitives/technical-label';
+import { BrandLink } from '@/components/landing/brand-link';
+import { MobileNav } from './mobile-nav';
 
 export function Header() {
   const [time, setTime] = useState<string>('');
@@ -16,21 +18,19 @@ export function Header() {
   }, []);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b-4 border-black bg-white px-4 sm:px-6 shadow-[0_2px_0px_#000000] z-10">
-      <div className="flex items-center space-x-3">
-        <span className="border-2 border-black bg-neo-cream px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-          Monitoring Console
-        </span>
+    <header className="z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border-strong bg-background px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex items-center gap-3 lg:hidden">
+          <MobileNav />
+          <BrandLink className="min-h-11 text-[1.25rem]" />
+        </div>
+        <TechnicalLabel as="span" tone="strong" className="hidden lg:inline-flex">Monitoring console</TechnicalLabel>
       </div>
-
-      <div className="flex items-center space-x-4">
-        {time && (
-          <span className="hidden sm:inline-block font-mono text-xs font-bold bg-black text-white px-2 py-1 border border-black">
-            {time}
-          </span>
-        )}
-        <ThemeToggle />
-      </div>
+      {time && (
+        <time className="vg-telemetry hidden text-muted-foreground sm:inline" dateTime={time.replace(' UTC', 'Z').replace(' ', 'T')}>
+          {time}
+        </time>
+      )}
     </header>
   );
 }

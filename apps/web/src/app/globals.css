@@ -2,130 +2,296 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   VigilAI design tokens
+   --------------------------------------------------------------------------
+   Two surface modes share one semantic vocabulary:
+     paper   — editorial light (default)          :root
+     optical — instrument dark (inverse sections,  .dark / .surface-optical
+               future dark theme)
+   Colour tokens are HSL channels so Tailwind can apply alpha: hsl(var(--x) / a).
+   Operational colours (success/warning/danger/track/signal) are reserved for
+   state. Decorative shader palettes must not reuse them.
+   ========================================================================== */
+
 @layer base {
   :root {
-    --background: 48 100% 98%;      /* #FFFDF5 Warm Cream */
-    --foreground: 0 0% 0%;           /* #000000 Solid Black */
-    --card: 0 0% 100%;               /* #FFFFFF Clean white cards */
-    --card-foreground: 0 0% 0%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 0 0% 0%;              /* Primary is punchy black */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 48 100% 62%;        /* #FFD93D Signal Yellow */
-    --secondary-foreground: 0 0% 0%;
-    --muted: 48 30% 92%;             /* #EFEBD9 Muted Cream */
-    --muted-foreground: 0 0% 25%;
-    --accent: 252 95% 85%;           /* #C4B5FD Tracking Violet */
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 100% 68%;       /* #FF5C5C Vigil Red */
-    --destructive-foreground: 0 0% 0%;
-    --border: 0 0% 0%;               /* Solid Black borders */
-    --input: 0 0% 0%;                /* Solid Black input borders */
-    --ring: 0 0% 0%;                 /* Solid Black focus ring */
-    --radius: 0px;                   /* Sharp 0px corners */
+    /* ---- Surfaces --------------------------------------------------------- */
+    --background: 50 19% 94%;          /* #F2F1EC paper */
+    --foreground: 220 10% 6%;          /* #0E0F11 ink */
+    --surface: 60 23% 97%;             /* #FAFAF7 raised panel */
+    --surface-foreground: 220 10% 6%;
+    --muted: 47 15% 88%;               /* #E6E4DD sunken / table head */
+    --muted-foreground: 60 4% 32%;     /* #56564F — 6.5:1 on paper */
+    --inactive: 55 4% 52%;             /* #8A897F — decorative/disabled only (3.1:1) */
+
+    /* ---- Rules ------------------------------------------------------------ */
+    --border: 49 8% 72%;               /* #BDBBB2 hairline rule */
+    --border-strong: 220 10% 6%;       /* ink rule for frames + interactive */
+    --input: 220 10% 6%;
+    --ring: 220 10% 6%;
+
+    /* ---- Operational accents (fill) + text-safe inks on paper -------------- */
+    --signal: 74 100% 61%;             /* #D2FF3A acquisition lime — primary accent, fill only on paper */
+    --signal-foreground: 220 10% 6%;
+    --signal-ink: 75 100% 19%;         /* #4A6300 — signal as text on paper (6.0:1) */
+    --track: 190 79% 61%;              /* #4FD1EA tracking / PPE / identity */
+    --track-foreground: 220 10% 6%;
+    --track-ink: 190 100% 24%;         /* #006479 (6.0:1) */
+    --success: 155 70% 40%;            /* #1FAE72 */
+    --success-foreground: 220 10% 6%;
+    --success-ink: 156 82% 24%;        /* #0B6E47 (5.6:1) */
+    --warning: 38 91% 53%;             /* #F4A51C */
+    --warning-foreground: 220 10% 6%;
+    --warning-ink: 36 100% 27%;        /* #8A5200 (5.7:1) */
+    --danger: 5 72% 46%;               /* #CC2F21 — white text 5.3:1 */
+    --danger-foreground: 0 0% 100%;
+    --danger-ink: 3 71% 41%;           /* #B3261E (5.8:1) */
+
+    /* ---- Typography ------------------------------------------------------- */
+    --text-display-xl: clamp(3.5rem, 1.6rem + 8vw, 9.5rem);
+    --text-display-lg: clamp(2.75rem, 1.5rem + 5vw, 6.25rem);
+    --text-display-md: clamp(2rem, 1.35rem + 2.8vw, 3.75rem);
+    --text-heading: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+    --text-title: 1.125rem;
+    --text-body-lg: 1.0625rem;
+    --text-body: 0.9375rem;
+    --text-body-sm: 0.8125rem;
+    --text-table: 0.8125rem;
+    --text-caption: 0.75rem;
+    --text-telemetry: 0.75rem;
+    --text-label: 0.6875rem;
+    --text-micro: 0.625rem;            /* hard floor — never smaller */
+
+    /* ---- Space / layout --------------------------------------------------- */
+    --gutter: clamp(1rem, 0.4rem + 2.6vw, 3rem);
+    --section-dense: clamp(2.5rem, 1.75rem + 3vw, 4.5rem);
+    --section: clamp(4rem, 2.5rem + 6vw, 8rem);
+    --section-atmos: clamp(6rem, 3.5rem + 10vw, 12rem);
+    --content: 1320px;
+    --content-wide: 1520px;
+    --content-narrow: 880px;
+    --measure: 66ch;
+    --header-h: 64px;
+
+    /* ---- Rules / radii / elevation --------------------------------------- */
+    --rule-hair: 1px;
+    --rule: 1px;
+    --rule-heavy: 2px;
+    --radius: 0px;
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+
+    /* ---- Motion ----------------------------------------------------------- */
+    --dur-micro: 140ms;                /* 100–180: press, toggle, hover tint   */
+    --dur-ui: 240ms;                   /* 180–320: menus, tabs, dialogs        */
+    --dur-section: 560ms;              /* 400–700: section reveals, panels     */
+    --dur-cinematic: 1100ms;           /* 700–1400: hero / storytelling beats  */
+    --ease-standard: cubic-bezier(.2, 0, 0, 1);
+    --ease-acquire: cubic-bezier(.16, 1, .3, 1);   /* lock-on: fast in, long settle */
+    --ease-mechanical: cubic-bezier(.65, 0, .35, 1); /* servo: symmetric in-out     */
+    --ease-exit: cubic-bezier(.4, 0, 1, 1);
+    --ease-signal: linear;                          /* scans, sweeps, tickers      */
+    --overlay-shadow-color: 220 30% 4% / .35;
   }
 
-  /* Support dark mode while respecting controlled operational brutalism */
-  .dark {
-    --background: 0 0% 7%;           /* Dark industrial charcoal #121212 */
-    --foreground: 48 100% 98%;       /* #FFFDF5 Cream text */
-    --card: 0 0% 10%;                /* Dark panel */
-    --card-foreground: 48 100% 98%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 48 100% 98%;
-    --primary: 48 100% 62%;          /* Signal Yellow primary in dark */
-    --primary-foreground: 0 0% 0%;
-    --secondary: 252 95% 85%;        /* Tracking violet */
-    --secondary-foreground: 0 0% 0%;
-    --muted: 0 0% 18%;
-    --muted-foreground: 0 0% 75%;
-    --accent: 48 100% 62%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 100% 68%;
-    --destructive-foreground: 0 0% 0%;
-    --border: 0 0% 100%;             /* White/crisp borders in dark mode */
-    --input: 0 0% 100%;
-    --ring: 48 100% 62%;
-    --radius: 0px;
+  /* Optical: instrument-dark. Applied by the (future) dark theme and by
+     .surface-optical sections so tokens remain correct inside inverse bands. */
+  .dark,
+  .surface-optical {
+    --background: 220 13% 5%;          /* #0A0B0D */
+    --foreground: 50 14% 91%;          /* #ECEBE6 */
+    --surface: 216 12% 8%;             /* #131518 */
+    --surface-foreground: 50 14% 91%;
+    --muted: 214 11% 12%;              /* #1B1E22 */
+    --muted-foreground: 52 4% 60%;     /* #9C9B94 — 7.1:1 */
+    --inactive: 52 3% 40%;
+    --border: 216 10% 19%;             /* #2C3036 */
+    --border-strong: 50 14% 91%;
+    --input: 216 10% 30%;
+    --ring: 74 100% 61%;
+    --signal-ink: 74 100% 61%;
+    --track-ink: 190 79% 61%;
+    --success-ink: 155 70% 45%;
+    --warning-ink: 38 91% 58%;
+    --danger: 6 100% 64%;              /* #FF5A48 — ink text 6.2:1 */
+    --danger-foreground: 220 10% 6%;
+    --danger-ink: 6 100% 64%;
+    --overlay-shadow-color: 0 0% 0% / .8;
+    color-scheme: dark;
   }
+  /* Derived tokens are re-declared per surface so var() resolves against the
+     surface's own base values (custom properties inherit computed values). */
+  :root,
+  .dark,
+  .surface-optical {
+    /* shadcn compatibility aliases */
+    --card: var(--surface);
+    --card-foreground: var(--surface-foreground);
+    --popover: var(--surface);
+    --popover-foreground: var(--surface-foreground);
+    --primary: var(--foreground);
+    --primary-foreground: var(--background);
+    --secondary: var(--signal);
+    --secondary-foreground: var(--signal-foreground);
+    --accent: var(--track);
+    --accent-foreground: var(--track-foreground);
+    --destructive: var(--danger);
+    --destructive-foreground: var(--danger-foreground);
+
+    --shadow-hard-1: 2px 2px 0 0 hsl(var(--border-strong));
+    --shadow-hard-2: 3px 3px 0 0 hsl(var(--border-strong));
+    --shadow-hard-3: 5px 5px 0 0 hsl(var(--border-strong));
+    --shadow-overlay: 0 0 0 1px hsl(var(--border-strong) / .1), 0 18px 48px -18px hsl(var(--overlay-shadow-color));
+  }
+
+  .surface-optical { background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
 }
 
 @layer base {
-  * {
-    border-color: #000000;
-  }
+  * { border-color: hsl(var(--border)); }
+
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
   body {
-    background-color: #FFFDF5;
-    color: #000000;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Sharp focus outline */
+  h1, h2 { font-family: var(--font-display), var(--font-sans), sans-serif; text-wrap: balance; }
+  p { text-wrap: pretty; }
+  code, kbd, samp, pre { font-family: var(--font-mono), ui-monospace, monospace; }
+
+  ::selection { background: hsl(var(--signal)); color: hsl(var(--signal-foreground)); }
+
   :focus-visible {
-    outline: 2px solid #000000;
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
 
-  /* Custom mechanical scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #FFFDF5;
-    border-left: 2px solid #000000;
-  }
+  /* Instrument scrollbar */
+  * { scrollbar-width: thin; scrollbar-color: hsl(var(--foreground) / .55) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: #000000;
+    background: hsl(var(--foreground) / .45);
+    border: 3px solid hsl(var(--background));
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #FFD93D;
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--foreground)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-/* Operational technical grid background */
-.bg-tech-grid {
-  background-size: 24px 24px;
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+@layer components {
+  /* Layout ----------------------------------------------------------------- */
+  .vg-container { width: min(var(--content), calc(100% - 2 * var(--gutter))); margin-inline: auto; }
+  .vg-container-wide { width: min(var(--content-wide), calc(100% - 2 * var(--gutter))); margin-inline: auto; }
+  .vg-container-narrow { width: min(var(--content-narrow), calc(100% - 2 * var(--gutter))); margin-inline: auto; }
+  .vg-section { padding-block: var(--section); }
+  .vg-section-dense { padding-block: var(--section-dense); }
+  .vg-section-atmos { padding-block: var(--section-atmos); }
+
+  /* Type roles ------------------------------------------------------------- */
+  .vg-label {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: var(--text-label);
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .vg-telemetry {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: var(--text-telemetry);
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: .01em;
+  }
+
+  /* Tracking brackets: four corner marks drawn as an overlay (above media),
+     CSS only. Override --bracket-size / --bracket-weight / --bracket-color /
+     --bracket-inset per use. */
+  .vg-brackets {
+    --bracket-size: 12px;
+    --bracket-weight: 1.5px;
+    --bracket-color: hsl(var(--foreground));
+    --bracket-inset: 0px;
+    position: relative;
+  }
+  .vg-brackets::after {
+    --c: linear-gradient(var(--bracket-color), var(--bracket-color));
+    content: "";
+    position: absolute;
+    inset: var(--bracket-inset);
+    z-index: 1;
+    pointer-events: none;
+    background-image: var(--c), var(--c), var(--c), var(--c), var(--c), var(--c), var(--c), var(--c);
+    background-repeat: no-repeat;
+    background-size:
+      var(--bracket-size) var(--bracket-weight), var(--bracket-weight) var(--bracket-size),
+      var(--bracket-size) var(--bracket-weight), var(--bracket-weight) var(--bracket-size),
+      var(--bracket-size) var(--bracket-weight), var(--bracket-weight) var(--bracket-size),
+      var(--bracket-size) var(--bracket-weight), var(--bracket-weight) var(--bracket-size);
+    background-position:
+      left top, left top, right top, right top,
+      left bottom, left bottom, right bottom, right bottom;
+  }
 }
 
-.bg-tech-dots {
-  background-size: 20px 20px;
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
-}
+@layer utilities {
+  /* Calibration grid: 8px minor / 64px major. Low contrast so it never competes with data. */
+  .bg-tech-grid {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / .07) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / .07) 1px, transparent 1px),
+      linear-gradient(to right, hsl(var(--foreground) / .03) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / .03) 1px, transparent 1px);
+    background-size: 64px 64px, 64px 64px, 8px 8px, 8px 8px;
+  }
 
-/* Mechanical click effect */
-.btn-press {
-  transition: transform 100ms ease, box-shadow 100ms ease;
-}
-.btn-press:active {
-  transform: translate(2px, 2px);
-  box-shadow: 0px 0px 0px #000000 !important;
-}
+  .bg-tech-dots {
+    background-size: 16px 16px;
+    background-image: radial-gradient(circle, hsl(var(--foreground) / .14) 1px, transparent 1.2px);
+  }
 
-/* Technical hazard / warning stripes */
-.hazard-stripes {
-  background: repeating-linear-gradient(
-    -45deg,
-    #FFD93D,
-    #FFD93D 10px,
-    #000000 10px,
-    #000000 20px
-  );
-}
+  /* Film-grain overlay for atmospheric (marketing) surfaces only — not data views. */
+  .vg-grain { position: relative; isolation: isolate; }
+  .vg-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: .06;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .surface-optical .vg-grain::after, .vg-grain.surface-optical::after { mix-blend-mode: screen; opacity: .05; }
 
-.hazard-stripes-red {
-  background: repeating-linear-gradient(
-    -45deg,
-    #FF5C5C,
-    #FF5C5C 10px,
-    #000000 10px,
-    #000000 20px
-  );
+  /* Mechanical press feedback */
+  .btn-press {
+    transition: transform var(--dur-micro) var(--ease-standard), box-shadow var(--dur-micro) var(--ease-standard);
+  }
+  .btn-press:active { transform: translate(1px, 1px); box-shadow: none !important; }
+
+  /* Hazard bands — reserved for warning/danger states */
+  .hazard-stripes {
+    background: repeating-linear-gradient(-45deg, hsl(var(--warning)) 0 10px, hsl(var(--foreground)) 10px 20px);
+  }
+  .hazard-stripes-red {
+    background: repeating-linear-gradient(-45deg, hsl(var(--danger)) 0 10px, hsl(var(--foreground)) 10px 20px);
+  }
+
+  .tabular { font-variant-numeric: tabular-nums slashed-zero; }
 }

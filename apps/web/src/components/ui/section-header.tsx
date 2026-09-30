@@ -1,5 +1,6 @@
 import React from "react"
 import { cn } from "@/lib/utils"
+import { TechnicalLabel } from "@/components/primitives/technical-label"
 
 interface SectionHeaderProps {
   tag?: string
@@ -11,23 +12,19 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ tag, title, description, action, className }: SectionHeaderProps) {
   return (
-    <div className={cn("flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b-4 border-black pb-4", className)}>
-      <div>
-        {tag && (
-          <div className="inline-block bg-neo-yellow border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] shadow-[2px_2px_0px_#000000] mb-2">
-            {tag}
-          </div>
-        )}
-        <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-black">
+    <div className={cn("flex flex-col justify-between gap-4 border-b border-border-strong pb-5 sm:flex-row sm:items-end", className)}>
+      <div className="min-w-0">
+        {tag && <TechnicalLabel className="mb-3">{tag}</TechnicalLabel>}
+        <h1 className="font-display text-heading uppercase text-foreground">
           {title}
         </h1>
         {description && (
-          <p className="text-xs sm:text-sm font-medium text-black/75 mt-1 max-w-2xl">
+          <p className="mt-3 max-w-measure text-body text-muted-foreground">
             {description}
           </p>
         )}
       </div>
-      {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}
+      {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
     </div>
   )
 }

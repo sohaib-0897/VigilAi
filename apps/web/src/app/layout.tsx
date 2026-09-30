@@ -1,12 +1,21 @@
 import './globals.css';
-import { Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import { Archivo, Geist, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/contexts/auth-context';
 
-const spaceGrotesk = Space_Grotesk({
+// Display: Archivo (variable width axis → condensed/expanded industrial headlines)
+// UI:      Geist (neutral, highly legible interface sans)
+// Data:    JetBrains Mono (telemetry, coordinates, IDs — tabular figures)
+const archivo = Archivo({
   subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  weight: ['400', '500', '600', '700'],
+  variable: '--font-display',
+  axes: ['wdth'],
+  display: 'swap',
+});
+
+const geist = Geist({
+  subsets: ['latin'],
+  variable: '--font-sans',
   display: 'swap',
 });
 
@@ -22,11 +31,18 @@ export const metadata = {
   description: 'Real-time video analytics, tracking, geometry rules, and evidence management',
 };
 
+export const viewport = {
+  themeColor: '#F2F1EC',
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
-      <body className={`${spaceGrotesk.className} font-sans bg-neo-bg text-neo-ink min-h-screen antialiased selection:bg-neo-yellow selection:text-black`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+    <html lang="en" suppressHydrationWarning className={`${archivo.variable} ${geist.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+        {/* Light "paper" is the only fully supported theme until the app surfaces
+            are migrated to tokens (Stage 7). The optical dark token set exists in
+            globals.css; forcing light prevents OS dark mode from half-applying. */}
+        <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>
             {children}
           </AuthProvider>

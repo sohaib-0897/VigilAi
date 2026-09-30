@@ -3,21 +3,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-none border border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0px_#000000] select-none",
+  "vg-label inline-flex h-6 select-none items-center gap-1.5 whitespace-nowrap border px-2 font-medium",
   {
     variants: {
       variant: {
-        default: "bg-neo-green text-black",
-        secondary: "bg-neo-muted text-black",
-        destructive: "bg-neo-red text-white",
-        outline: "bg-white text-black",
-        critical: "bg-neo-red text-white",
-        high: "bg-[#FF884B] text-black",
-        medium: "bg-neo-yellow text-black",
-        low: "bg-neo-violet text-black",
-        online: "bg-neo-green text-black",
-        offline: "bg-white text-black",
-        black: "bg-black text-white",
+        default: "border-border-strong bg-success text-success-foreground",
+        secondary: "border-border bg-muted text-foreground",
+        destructive: "border-border-strong bg-danger text-danger-foreground",
+        outline: "border-border-strong bg-transparent text-foreground",
+        critical: "border-border-strong bg-danger text-danger-foreground",
+        high: "border-border-strong bg-warning text-warning-foreground",
+        medium: "border-border-strong bg-signal text-signal-foreground",
+        low: "border-border-strong bg-track text-track-foreground",
+        online: "border-border-strong bg-success text-success-foreground",
+        offline: "border-border bg-muted text-muted-foreground",
+        black: "border-foreground bg-foreground text-background",
       },
       shape: {
         sharp: "rounded-none",

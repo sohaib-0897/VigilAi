@@ -1,11 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { UserPlus, AlertTriangle, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
+import { Label } from '@/components/ui/label';
+import { AuthAlert, AuthShell, authSwitchLink } from '@/components/auth/auth-shell';
+import { PasswordField } from '@/components/auth/password-field';
+
+const MISMATCH = 'Passwords do not match.';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -13,145 +16,141 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [mismatch, setMismatch] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const confirmRef = useRef<HTMLInputElement>(null);
   const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      return setError('Passwords do not match. Verification failed.');
+      setMismatch(true);
+      setError(MISMATCH);
+      confirmRef.current?.focus();
+      return;
     }
+    setMismatch(false);
     setSubmitting(true);
     setError('');
     try {
       await register(email, username, password);
     } catch (err: any) {
-      setError(err.message || 'Operator enrollment failed. Check input criteria.');
+      setError(err.message || 'Account creation failed. Check the fields and try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Editing either password clears a stale mismatch.
+  const clearMismatch = () => {
+    if (!mismatch) return;
+    setMismatch(false);
+    setError('');
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neo-bg bg-tech-grid p-4 text-black select-none">
-      <div className="w-full max-w-md space-y-4">
-        {/* Terminal Header Sticker */}
-        <div className="flex items-center justify-between border-2 border-black bg-neo-yellow p-2 shadow-neo-sm font-mono text-xs font-black uppercase tracking-wider">
-          <div className="flex items-center space-x-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-neo-green border border-black animate-pulse" />
-            <span>OPERATOR ENROLLMENT PROTOCOL</span>
-          </div>
-          <span>SEC-REG</span>
+    <AuthShell
+      label="Create account"
+      title="New operator"
+      description="Create an account to configure cameras and review events."
+      footer={
+        <p className="flex flex-wrap items-center gap-x-2">
+          Already have an account?
+          <Link href="/login" className={authSwitchLink}>Sign in</Link>
+        </p>
+      }
+    >
+      <form method="post" onSubmit={handleSubmit} aria-busy={submitting} className="mt-6 space-y-5">
+        <AuthAlert message={error} />
+
+        <div className="space-y-2">
+          <Label htmlFor="register-email">Email</Label>
+          <Input
+            id="register-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            spellCheck={false}
+            maxLength={255}
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            disabled={submitting}
+            className="h-11"
+          />
         </div>
 
-        <Card className="border-4 border-black bg-white shadow-neo-lg rounded-none">
-          <CardHeader className="border-b-4 border-black bg-neo-cream p-6">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="h-10 w-10 border-2 border-black bg-neo-yellow text-black flex items-center justify-center shadow-[2px_2px_0px_#000000]">
-                <UserPlus className="h-6 w-6" strokeWidth={2.5} />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-black uppercase tracking-tight">Register Operator</CardTitle>
-                <p className="text-xs font-bold text-black/70 uppercase tracking-wider font-mono">
-                  Provision Surveillance Credentials
-                </p>
-              </div>
-            </div>
-          </CardHeader>
+        <div className="space-y-2">
+          <Label htmlFor="register-username">Username</Label>
+          <Input
+            id="register-username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            minLength={3}
+            maxLength={50}
+            aria-describedby="register-username-hint"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            required
+            disabled={submitting}
+            className="h-11"
+          />
+          <p id="register-username-hint" className="text-caption text-muted-foreground">3–50 characters.</p>
+        </div>
 
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-3.5 p-6">
-              {error && (
-                <div className="flex items-start space-x-2 border-2 border-black bg-neo-red p-3 text-white shadow-[2px_2px_0px_#000000]">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" strokeWidth={3} />
-                  <span className="text-xs font-bold uppercase tracking-wide">{error}</span>
-                </div>
-              )}
+        <div className="space-y-2">
+          <Label htmlFor="register-password">Password</Label>
+          <PasswordField
+            id="register-password"
+            name="password"
+            autoComplete="new-password"
+            minLength={8}
+            aria-describedby="register-password-hint"
+            value={password}
+            onChange={e => {
+              setPassword(e.target.value);
+              clearMismatch();
+            }}
+            required
+            disabled={submitting}
+            className="h-11"
+          />
+          <p id="register-password-hint" className="text-caption text-muted-foreground">At least 8 characters.</p>
+        </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-black uppercase tracking-wider text-black">
-                  Corporate / Surveillance Email
-                </label>
-                <Input
-                  type="email"
-                  placeholder="operator@vigilai.internal"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  disabled={submitting}
-                  className="font-mono text-sm"
-                />
-              </div>
+        <div className="space-y-2">
+          <Label htmlFor="register-confirm">Confirm password</Label>
+          <PasswordField
+            ref={confirmRef}
+            id="register-confirm"
+            name="confirm-password"
+            autoComplete="new-password"
+            aria-invalid={mismatch || undefined}
+            aria-describedby={mismatch ? 'register-confirm-error' : undefined}
+            value={confirm}
+            onChange={e => {
+              setConfirm(e.target.value);
+              clearMismatch();
+            }}
+            required
+            disabled={submitting}
+            className="h-11"
+          />
+          {mismatch && (
+            <p id="register-confirm-error" className="text-caption font-medium text-danger-ink">
+              {MISMATCH} Re-enter the same password.
+            </p>
+          )}
+        </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-black uppercase tracking-wider text-black">
-                  Operator Identifier (Username)
-                </label>
-                <Input
-                  type="text"
-                  placeholder="operator_unit_1"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  required
-                  disabled={submitting}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-black uppercase tracking-wider text-black">
-                  Security Passkey
-                </label>
-                <Input
-                  type="password"
-                  placeholder="••••••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  disabled={submitting}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-black uppercase tracking-wider text-black">
-                  Confirm Security Passkey
-                </label>
-                <Input
-                  type="password"
-                  placeholder="••••••••••••"
-                  value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
-                  required
-                  disabled={submitting}
-                  className="font-mono text-sm"
-                />
-              </div>
-            </CardContent>
-
-            <CardFooter className="flex flex-col space-y-4 border-t-2 border-black p-6 bg-neo-cream/40">
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="w-full h-12 text-sm font-black tracking-widest bg-neo-yellow text-black hover:bg-black hover:text-white border-2 border-black shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                <ShieldCheck className="h-4 w-4 mr-2" strokeWidth={2.5} />
-                {submitting ? 'ENROLLING OPERATOR...' : 'ENROLL OPERATOR & ISSUE TOKEN'}
-              </Button>
-
-              <div className="flex justify-between items-center w-full text-xs font-bold">
-                <span className="text-black/60">Existing operator credentials?</span>
-                <Link
-                  href="/login"
-                  className="bg-white border-2 border-black px-2 py-1 text-black hover:bg-neo-yellow shadow-[2px_2px_0px_#000000] uppercase tracking-wider transition-colors"
-                >
-                  Return to Sign In
-                </Link>
-              </div>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
-    </div>
+        <Button type="submit" size="lg" disabled={submitting} className="w-full">
+          {submitting ? 'Creating account…' : 'Create account'}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

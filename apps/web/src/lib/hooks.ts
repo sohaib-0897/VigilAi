@@ -14,6 +14,8 @@ export function getWebSocketBaseUrl(): string {
 
 export function useWebSocket(url: string) {
   const [lastMessage, setLastMessage] = useState<any>(null);
+  // True only while the socket is actually open; drives truthful "live" indicators.
+  const [connected, setConnected] = useState(false);
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export function useWebSocket(url: string) {
       if (stopped || !url) return;
       try {
         ws.current = new WebSocket(url);
+        ws.current.onopen = () => setConnected(true);
         ws.current.onmessage = (event) => {
           try {
             setLastMessage(JSON.parse(event.data));
@@ -31,6 +34,7 @@ export function useWebSocket(url: string) {
           }
         };
         ws.current.onclose = () => {
+          setConnected(false);
           if (!stopped) timeout = setTimeout(connect, 3000);
         };
         ws.current.onerror = () => {
@@ -46,10 +50,11 @@ export function useWebSocket(url: string) {
       stopped = true;
       clearTimeout(timeout);
       ws.current?.close();
+      setConnected(false);
     };
   }, [url]);
 
-  return { lastMessage };
+  return { lastMessage, connected };
 }
 
 export function useEventStream() {

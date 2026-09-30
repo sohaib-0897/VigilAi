@@ -14,10 +14,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!mounted || loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-neo-bg bg-tech-grid">
-        <div className="border-4 border-black bg-neo-yellow p-6 font-black uppercase text-sm sm:text-base shadow-neo-lg flex items-center space-x-3">
-          <div className="h-3 w-3 bg-black animate-ping" />
-          <span className="tracking-wider">INITIALIZING SURVEILLANCE CONSOLE...</span>
+      <div className="flex h-dvh items-center justify-center bg-background" role="status" aria-live="polite">
+        <div className="vg-brackets flex items-center gap-3 px-6 py-5">
+          <span className="h-2 w-2 bg-foreground motion-safe:animate-signal-blink" aria-hidden="true" />
+          <span className="vg-label text-foreground">Loading console</span>
         </div>
       </div>
     );
@@ -26,12 +26,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-neo-bg text-black">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[60] -translate-y-[150%] border border-border-strong bg-signal px-4 py-2.5 text-body-sm font-semibold text-signal-foreground focus:translate-y-0"
+      >
+        Skip to content
+      </a>
+      <Sidebar className="hidden lg:block" />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto bg-neo-bg bg-tech-grid p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        {/* `relative` makes main the containing block for absolutely positioned descendants
+            (sr-only live regions, Radix's hidden native <select>); otherwise they escape the
+            scroll container, grow the document and let focus scrolling shift the whole shell. */}
+        <main id="main-content" tabIndex={-1} className="relative flex-1 overflow-y-auto focus:outline-none">
+          <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

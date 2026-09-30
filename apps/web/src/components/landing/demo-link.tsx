@@ -38,6 +38,6 @@ export function DemoLink() {
       {submitting ? 'Opening feed…' : 'USE DEMO VIDEO'}
       {!submitting && <ArrowUpRight className="ml-3 h-4 w-4" aria-hidden="true" />}
     </Button>
-    {error && <span role="alert" className="max-w-xs border-2 border-black bg-neo-red px-2 py-1 text-xs font-bold">{error}</span>}
+    {error && <span role="alert" className="max-w-xs border border-border-strong bg-danger px-2 py-1 text-body-sm font-medium text-danger-foreground">{error}</span>}
   </span>;
 }

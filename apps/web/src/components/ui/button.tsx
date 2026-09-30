@@ -3,24 +3,28 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
+// Industrial button: square, ink-framed. Interaction is mechanical — hover
+// lifts 1px onto a hard shadow, press seats it back down. No scale, no glow.
+const lift = "hover:-translate-x-px hover:-translate-y-px hover:shadow-hard-1 active:translate-x-0 active:translate-y-0 active:shadow-none"
+
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-none font-bold uppercase tracking-wider text-xs border-2 sm:border-2 border-black transition-all duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black disabled:pointer-events-none disabled:opacity-50 select-none",
+  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-none border font-sans text-[0.75rem] font-semibold uppercase leading-none tracking-[0.08em] transition-[background-color,color,border-color,box-shadow,transform] duration-micro ease-standard focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-black text-white hover:bg-black/85 shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        secondary: "bg-neo-yellow text-black hover:bg-[#ffe265] shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        destructive: "bg-neo-red text-white hover:bg-[#ff7575] shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        outline: "bg-white text-black hover:bg-neo-cream shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        violet: "bg-neo-violet text-black hover:bg-[#d4c9fe] shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        green: "bg-neo-green text-black hover:bg-[#78eb89] shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        ghost: "border-transparent bg-transparent text-black hover:bg-neo-yellow/25 hover:border-black shadow-none",
-        link: "border-transparent bg-transparent text-black underline-offset-4 hover:underline shadow-none p-0 h-auto",
+        default: `border-border-strong bg-foreground text-background hover:bg-foreground/90 ${lift}`,
+        secondary: `border-border-strong bg-signal text-signal-foreground hover:bg-signal/85 ${lift}`,
+        destructive: `border-border-strong bg-danger text-danger-foreground hover:bg-danger/90 ${lift}`,
+        outline: `border-border-strong bg-surface text-foreground hover:bg-muted ${lift}`,
+        violet: `border-border-strong bg-track text-track-foreground hover:bg-track/85 ${lift}`,
+        green: `border-border-strong bg-success text-success-foreground hover:bg-success/85 ${lift}`,
+        ghost: "border-transparent bg-transparent text-foreground hover:border-border hover:bg-muted/70",
+        link: "h-auto border-transparent bg-transparent p-0 text-foreground underline decoration-1 underline-offset-4 hover:decoration-2",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 px-3 text-[11px]",
-        lg: "h-12 px-6 text-sm font-black tracking-widest",
+        default: "h-10 px-4",
+        sm: "h-8 px-3 text-[0.6875rem]",
+        lg: "h-12 px-6 text-[0.8125rem]",
         icon: "h-10 w-10 p-0",
       },
     },
