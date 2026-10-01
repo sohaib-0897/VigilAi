@@ -93,7 +93,7 @@ All metrics and test results reported below were executed on host hardware: **In
 
 ### 1. Test Suite & Build Verification
 
-* **Backend Test Suite:** **139 / 139 passed** in 12.81s (`python -m pytest tests -v`). Covers ray-casting geometry, virtual line crossings, ByteTrack identity stability, dwell/occupancy state machines, rule deduplication, camera-bound stream tickets, and anatomical PPE association.
+* **Backend Test Suite:** **160 passed** (`python -m pytest tests -v`), with one Starlette deprecation warning. Covers ray-casting geometry, virtual line crossings, ByteTrack identity stability, dwell/occupancy state machines, rule deduplication, camera-bound stream tickets, and anatomical PPE association.
 * **Frontend Production Build:** **12 / 12 routes** compiled cleanly in Next.js 15 App Router (`npm run build` in `apps/web`), **0 ESLint warnings or errors** (`npm run lint`).
 
 ### 2. End-to-End Real-Time Pipeline Benchmarks
