@@ -7,6 +7,12 @@ of ENVIRONMENT/SECRET_KEY/ENCRYPTION_KEY without interference. `_env_file=None`
 isolates construction from any local `.env` a developer has on disk.
 """
 
+import json
+import os
+import subprocess
+import uuid
+from pathlib import Path
+
 import pytest
 from cryptography.fernet import Fernet
 from fastapi import Response
@@ -15,6 +21,101 @@ from vigilai_api.core.config import Settings
 
 VALID_SECRET_KEY = "a" * 48  # 48 chars, well past the 32 char minimum
 VALID_ENCRYPTION_KEY = Fernet.generate_key().decode()
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _production_compose_env(**overrides):
+    env = os.environ.copy()
+    env.update(
+        {
+            "DOMAIN": "example.com",
+            "ACME_EMAIL": "deploy-validation@example.com",
+            "SECRET_KEY": VALID_SECRET_KEY,
+            "ENCRYPTION_KEY": VALID_ENCRYPTION_KEY,
+            "POSTGRES_PASSWORD": "compose-validation-only",
+        }
+    )
+    env.update(overrides)
+    return env
+
+
+def _compose_base_command(project_name=None):
+    command = ["docker", "compose"]
+    if project_name:
+        command.extend(["--project-name", project_name])
+    command.extend(
+        [
+            "-f",
+            str(REPO_ROOT / "docker-compose.yml"),
+            "-f",
+            str(REPO_ROOT / "docker-compose.prod.yml"),
+        ]
+    )
+    return command
+
+
+def test_production_requires_acme_email_and_validates_caddy():
+    """Catch the AWS failure where an empty env var rendered `email` alone."""
+    missing_email = subprocess.run(
+        [*_compose_base_command(), "config", "--format", "json"],
+        cwd=REPO_ROOT,
+        env=_production_compose_env(ACME_EMAIL=""),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert missing_email.returncode != 0
+    assert "ACME_EMAIL is required in production" in missing_email.stderr
+
+    project_name = f"vigilai-caddy-validation-{uuid.uuid4().hex[:10]}"
+    command = _compose_base_command(project_name)
+    rendered = subprocess.run(
+        [*command, "config", "--format", "json"],
+        cwd=REPO_ROOT,
+        env=_production_compose_env(),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    config = json.loads(rendered.stdout)
+    assert config["services"]["caddy"]["environment"]["ACME_EMAIL"] == (
+        "deploy-validation@example.com"
+    )
+
+    try:
+        validation = subprocess.run(
+            [
+                *command,
+                "run",
+                "--rm",
+                "--no-deps",
+                "--name",
+                f"{project_name}-caddy",
+                "caddy",
+                "caddy",
+                "validate",
+                "--config",
+                "/etc/caddy/Caddyfile",
+                "--adapter",
+                "caddyfile",
+            ],
+            cwd=REPO_ROOT,
+            env=_production_compose_env(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert validation.returncode == 0, validation.stdout + validation.stderr
+        assert "Valid configuration" in validation.stdout + validation.stderr
+    finally:
+        subprocess.run(
+            [*command, "down", "--volumes", "--remove-orphans"],
+            cwd=REPO_ROOT,
+            env=_production_compose_env(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
 
 def test_development_boots_with_insecure_defaults():

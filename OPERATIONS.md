@@ -2,14 +2,15 @@
 
 ## Configuration and startup
 
-Copy `.env.example` to `.env`. The example database credentials are local-development defaults. Set a unique `SECRET_KEY` and valid persistent `ENCRYPTION_KEY`. With project Python dependencies installed, generate values locally:
+Copy `.env.example` to `.env`. Local Compose has development-only fallbacks; the production overlay requires explicit values for `SECRET_KEY`, `ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `DOMAIN`, and `ACME_EMAIL`. Never leave sample/placeholder values in a production `.env`. Generate all secrets on the deployment host and do not commit them:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+openssl rand -hex 24
 ```
 
-Place the first value in `SECRET_KEY` and the second in `ENCRYPTION_KEY`. Keep both private and use the same values for API and worker. Changing the encryption key without migrating stored credentials makes existing RTSP sources unreadable.
+Put the generated values in `SECRET_KEY`, `ENCRYPTION_KEY`, and `POSTGRES_PASSWORD`, respectively. If `cryptography` is not installed on the host, a Fernet-compatible key can be generated with `python3 -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"`. Keep the secrets private and use the same values for API and worker. Changing the encryption key without migrating stored credentials makes existing RTSP sources unreadable.
 
 For Docker-only setup, these commands can run using `docker compose run --rm --no-deps api python -c ...` after `docker compose build api`.
 
@@ -113,7 +114,7 @@ The base `docker-compose.yml` is for local development and demos: it publishes P
 
 # Production VPS Deployment
 
-This adds a second, opt-in deployment path for a single Ubuntu VPS with a real domain:
+This adds a second, opt-in deployment path for a single Ubuntu VPS with a real domain. The same Compose architecture is used by the AWS deployment summarized below:
 
 ```text
 INTERNET
@@ -130,6 +131,12 @@ CADDY (ports 80/443 only)
 ### 1. Provision the VPS
 
 Ubuntu 22.04 or 24.04, recommended 4 vCPU / 8 GB RAM minimum (CPU-only YOLO inference is the heaviest workload). SSH in as a non-root sudo user.
+
+### Verified deployment example
+
+VigilAI is publicly deployed on AWS EC2 in `ap-south-1` (Mumbai), using Ubuntu 24.04 LTS on an x86_64 `m7i-flex.large` instance (2 vCPU, about 8 GiB RAM, 20 GiB gp3 root disk). The public HTTPS endpoint is [https://0897vigilai.duckdns.org](https://0897vigilai.duckdns.org). Docker Compose runs Caddy as the only application service exposed on ports 80/443, with Next.js, FastAPI, PostgreSQL, and Redis on the internal network. Inference uses ONNX Runtime on CPU. The model-init service provisions or reuses `/app/models/yolov8n.onnx`; the production worker is pinned to that artifact, corresponding to registry ID `coco-yolov8n-onnx`.
+
+The public website and HTTPS deployment have been verified. This status does not claim a complete public camera-inference, event/evidence, WebSocket, MJPEG, or restart-persistence acceptance run.
 
 ### 2. Install Docker Engine + Compose plugin
 
@@ -167,7 +174,7 @@ cd vigilai
 cp .env.example .env
 ```
 
-Fill in the values under `# LOCAL / DEVELOPMENT` (they double as the values used inside the containers) and then the `# PRODUCTION REQUIRED` section below.
+Set the required production values below. Do not rely on local development fallbacks or leave any sample value in place. Production Compose rejects missing/empty required variables before starting containers; API validation also rejects placeholder or invalid application secrets.
 
 ### 6. Generate `SECRET_KEY`
 
@@ -185,7 +192,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 
 Put the result in `ENCRYPTION_KEY` in `.env`. **Back this up together with your database backups.** It encrypts stored RTSP camera credentials; losing it or rotating it without re-encrypting existing rows makes those credentials permanently unreadable.
 
-Also set `POSTGRES_PASSWORD` to a strong value (`openssl rand -hex 24`) and set `ENVIRONMENT=production`.
+Set `POSTGRES_PASSWORD` to the output of `openssl rand -hex 24` and set `ENVIRONMENT=production`.
 
 ### 8. Set `DOMAIN`
 
@@ -194,6 +201,8 @@ Also set `POSTGRES_PASSWORD` to a strong value (`openssl rand -hex 24`) and set 
 DOMAIN=example.com
 ACME_EMAIL=you@example.com
 ```
+
+`ACME_EMAIL` is required and must be non-empty. The production Compose overlay enforces this so Caddy never receives an invalid bare `email` directive and crash-loops.
 
 `CORS_ORIGINS` and `FRONTEND_URL` are derived automatically from `DOMAIN` (as `https://DOMAIN`) unless you override them explicitly in `.env`.
 
@@ -268,7 +277,7 @@ Migrations run automatically as part of API container startup.
 | `SECRET_KEY` | Yes | JWT signing key; rejected if short or a known placeholder |
 | `ENCRYPTION_KEY` | Yes | Fernet key for RTSP credential encryption; rejected if invalid or a known placeholder |
 | `POSTGRES_PASSWORD` | Yes | Database password; no longer defaults to `vigilai_dev` |
-| `ACME_EMAIL` | Recommended | Let's Encrypt expiry contact |
+| `ACME_EMAIL` | Yes | Non-empty contact email supplied to Caddy's ACME configuration; Compose fails early if missing |
 | `ENVIRONMENT=production` | Yes | Enables strict secret validation and `Secure` auth cookies |
 | `CORS_ORIGINS`, `FRONTEND_URL` | Optional | Derived from `DOMAIN` when left unset |
 

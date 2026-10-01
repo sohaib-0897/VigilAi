@@ -12,6 +12,7 @@
 # automatically; only the MJPEG route needs explicit tuning to avoid
 # buffering, and the API route needs a long idle timeout for WebSockets.
 {
+	# Production Compose requires ACME_EMAIL; keep this directive non-empty.
 	email {$ACME_EMAIL}
 }
 

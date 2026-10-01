@@ -8,8 +8,8 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
-# Required environment variables (see .env.example): DOMAIN, SECRET_KEY,
-# ENCRYPTION_KEY, POSTGRES_PASSWORD. Missing any of them fails `config`/`up`
+# Required environment variables (see .env.example): DOMAIN, ACME_EMAIL,
+# SECRET_KEY, ENCRYPTION_KEY, POSTGRES_PASSWORD. Missing any of them fails `config`/`up`
 # immediately instead of silently falling back to an insecure default.
 #
 # Requires Docker Compose v2.24+ for the `!reset` merge directive used below
@@ -27,7 +27,7 @@ services:
       - "443:443/udp" # HTTP/3 (QUIC)
     environment:
       DOMAIN: "${DOMAIN:?DOMAIN is required in production - set it in .env, e.g. DOMAIN=example.com}"
-      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_EMAIL: "${ACME_EMAIL:?ACME_EMAIL is required in production; set a valid contact email in .env}"
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-500}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro

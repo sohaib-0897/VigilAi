@@ -182,6 +182,7 @@ def test_production_worker_ignores_a_local_model_path_override():
         {
             "YOLO_MODEL_PATH": "yolov8n.pt",
             "DOMAIN": "compose-test.example",
+            "ACME_EMAIL": "compose-validation@example.invalid",
             "POSTGRES_PASSWORD": "compose-validation-only",
             "SECRET_KEY": "compose-validation-only-secret-key-value",
             "ENCRYPTION_KEY": "compose-validation-only-encryption-key",

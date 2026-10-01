@@ -2,6 +2,8 @@
 
 A real-time video analytics system that converts raw object detections into persistent tracks, stateful spatial analytics, and deduplicated reviewable events.
 
+**Production-oriented real-time video analytics platform deployed on AWS.** Live HTTPS deployment: [0897vigilai.duckdns.org](https://0897vigilai.duckdns.org). The Compose deployment uses Caddy for HTTPS, Next.js, FastAPI, PostgreSQL, Redis, and CPU-based ONNX Runtime inference. The live site is verified; complete public CV/event, WebSocket, MJPEG, and persistence acceptance has not been claimed.
+
 Standard deep learning object detectors evaluate isolated video frames without temporal context. When applied to continuous CCTV or surveillance streams, this produces persistent identity loss, massive alert floods for stationary objects, and creeping latency as inference queues back up. VigilAI implements a stateful computer vision pipeline that decouples frame ingestion from inference via bounded drop-oldest buffers, associates detections across frames with an 8-state Kalman ByteTrack tracker, computes vector-based spatial analytics (zones, directional tripwires, dwell times, and occupancy), deduplicates event lifecycles, and captures forensically annotated snapshots persisted to PostgreSQL.
 
 ---
@@ -186,7 +188,7 @@ npm run dev
 ## Testing
 
 ```bash
-# Run full automated backend test suite (139 tests)
+# Run full automated backend test suite
 python -m pytest tests -v
 
 # Run Next.js production build and lint check
