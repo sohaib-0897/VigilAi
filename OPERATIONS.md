@@ -19,7 +19,7 @@ For Docker-only setup, these commands can run using `docker compose run --rm --n
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Compose database configuration; Compose constructs container database URLs from these |
 | `REDIS_URL` | Local Redis connection; Compose supplies its internal service URL |
 | `SECRET_KEY`, `ENCRYPTION_KEY` | Signing and RTSP encryption keys |
-| `YOLO_MODEL_PATH`, `YOLO_DEVICE` | Model path and inference device; CPU is the default |
+| `YOLO_MODEL_PATH`, `YOLO_DEVICE` | Local model path and inference device; CPU is the default. Production pins the worker to the provisioned ONNX registry artifact regardless of `YOLO_MODEL_PATH` in `.env`. |
 | `EVIDENCE_DIR`, `UPLOAD_DIR` | Local storage paths; Compose mounts shared named volumes |
 | `DEMO_VIDEO_PATH` | Server-controlled bundled demo path; Compose mounts `assets/demo` read-only at `/app/data/demo` for API and worker |
 | `MAX_CAMERAS_PER_WORKER`, `FRAME_QUEUE_SIZE` | Worker capacity and bounded queue size |
@@ -47,6 +47,8 @@ After deployment:
 The authenticated `POST /api/v1/cameras/demo` endpoint creates or returns the signed-in user's normal local-video camera. It selects the bundled file server-side and requires no uploaded path. Processing runs through the standard worker and camera model. No detections, events, analytics, or evidence are pre-seeded. Local video sources currently replay on EOF; the worker resets tracking, temporal analytics, PPE, and active event state at each replay boundary and resolves active events before starting the next pass.
 
 **Model provisioning.** Compose runs the one-shot `model-init` service before starting the worker. It provisions the registry default `coco-yolov8n-onnx` artifact at `/app/models/yolov8n.onnx` in the persistent `model_data` named volume. The service uses the existing `scripts/export_onnx.py` path to export the official Ultralytics `yolov8n.pt` checkpoint with the registry's 640-pixel input, FP32, static shape, and ONNX opset 17. It validates ONNX structure, CPU load/inference, tensor shapes, and COCO class metadata before atomically publishing the file. A valid existing artifact is reused; an invalid one is regenerated without replacing it until the replacement validates. The API and worker continue to share the same volume, so existing valid manually provisioned volumes remain usable.
+
+In the production Compose overlay, the worker is pinned to `/app/models/yolov8n.onnx`, the `coco-yolov8n-onnx` registry artifact. A stale host `.env` value such as `YOLO_MODEL_PATH=yolov8n.pt` cannot redirect the production worker. The base Compose file still honors `YOLO_MODEL_PATH` for local development.
 
 Internet access is required on the first boot of a fresh `model_data` volume (or when regeneration is needed), so Ultralytics can fetch its canonical `yolov8n.pt` asset. A volume that already contains a valid ONNX artifact needs no model download. No custom URL or user-provided remote artifact is used. If provisioning fails, the initializer exits nonzero with the model ID and cause, and Compose will not start the worker; restore connectivity or fix the artifact/source, then retry `docker compose up -d`.
 

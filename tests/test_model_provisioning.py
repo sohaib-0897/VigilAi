@@ -147,5 +147,29 @@ def test_compose_worker_waits_for_idempotent_model_init_in_both_overlays():
     assert worker["environment"]["YOLO_MODEL_PATH"].endswith("/app/models/yolov8n.onnx}")
     assert "model-init" not in production["services"]
     production_worker = production["services"]["worker"]
-    assert production_worker["environment"]["YOLO_MODEL_PATH"].endswith("/app/models/yolov8n.onnx}")
+    assert production_worker["environment"]["YOLO_MODEL_PATH"] == "/app/models/yolov8n.onnx"
     assert "depends_on" not in production_worker  # Compose merge preserves base dependencies.
+
+
+def test_production_worker_ignores_a_local_model_path_override():
+    root = Path(__file__).resolve().parents[1]
+    base = yaml.safe_load((root / "docker-compose.yml").read_text(encoding="utf-8"))
+    production = yaml.load(
+        (root / "docker-compose.prod.yml").read_text(encoding="utf-8"),
+        Loader=_ComposeLoader,
+    )
+
+    local_environment = {"YOLO_MODEL_PATH": "yolov8n.pt"}
+    base_worker_path = base["services"]["worker"]["environment"]["YOLO_MODEL_PATH"]
+    production_worker_path = production["services"]["worker"]["environment"][
+        "YOLO_MODEL_PATH"
+    ]
+    from vigilai_api.core.models_registry import get_model_metadata
+
+    default_model = get_model_metadata("coco-yolov8n-onnx")
+
+    assert base_worker_path.startswith("${YOLO_MODEL_PATH:")  # Local model selection remains configurable.
+    assert local_environment["YOLO_MODEL_PATH"] == "yolov8n.pt"
+    assert production_worker_path == "/app/models/yolov8n.onnx"
+    assert default_model.id == "coco-yolov8n-onnx"
+    assert production_worker_path == f"/app/{default_model.weights_path}"

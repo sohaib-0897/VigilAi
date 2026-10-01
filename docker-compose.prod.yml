@@ -80,7 +80,9 @@ services:
       EVIDENCE_DIR: /app/evidence
       UPLOAD_DIR: /app/uploads
       DEMO_VIDEO_PATH: /app/data/demo/demo_feed.mp4
-      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-/app/models/yolov8n.onnx}
+      # Production must use the registry artifact provisioned into model_data.
+      # Do not inherit a developer's local YOLO_MODEL_PATH override here.
+      YOLO_MODEL_PATH: /app/models/yolov8n.onnx
       YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
       # api is only reachable from the internal Docker network (no published
       # port); Caddy is the sole client, so it is safe to trust forwarded
@@ -103,7 +105,7 @@ services:
       REDIS_URL: "redis://redis:6379/0"
       EVIDENCE_DIR: /app/evidence
       UPLOAD_DIR: /app/uploads
-      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-/app/models/yolov8n.onnx}
+      YOLO_MODEL_PATH: /app/models/yolov8n.onnx
       YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
       MAX_CAMERAS_PER_WORKER: ${MAX_CAMERAS_PER_WORKER:-4}
       FRAME_QUEUE_SIZE: ${FRAME_QUEUE_SIZE:-30}
