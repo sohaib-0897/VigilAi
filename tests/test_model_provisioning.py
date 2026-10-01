@@ -1,4 +1,7 @@
 import argparse
+import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -173,3 +176,55 @@ def test_production_worker_ignores_a_local_model_path_override():
     assert production_worker_path == "/app/models/yolov8n.onnx"
     assert default_model.id == "coco-yolov8n-onnx"
     assert production_worker_path == f"/app/{default_model.weights_path}"
+
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "YOLO_MODEL_PATH": "yolov8n.pt",
+            "DOMAIN": "compose-test.example",
+            "POSTGRES_PASSWORD": "compose-validation-only",
+            "SECRET_KEY": "compose-validation-only-secret-key-value",
+            "ENCRYPTION_KEY": "compose-validation-only-encryption-key",
+        }
+    )
+    rendered = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yml",
+            "-f",
+            "docker-compose.prod.yml",
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=root,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    config = json.loads(rendered.stdout)
+    rendered_worker = config["services"]["worker"]
+    rendered_initializer = config["services"]["model-init"]
+    expected_path = f"/app/{default_model.weights_path}"
+
+    assert environment["YOLO_MODEL_PATH"] == "yolov8n.pt"
+    assert rendered_worker["environment"]["YOLO_MODEL_PATH"] == expected_path
+    assert rendered_initializer["command"][
+        rendered_initializer["command"].index("--output") + 1
+    ] == expected_path
+    worker_model_volume = next(
+        volume for volume in rendered_worker["volumes"] if volume["target"] == "/app/models"
+    )
+    initializer_model_volume = next(
+        volume
+        for volume in rendered_initializer["volumes"]
+        if volume["target"] == "/app/models"
+    )
+    assert worker_model_volume == initializer_model_volume
+    assert (
+        rendered_worker["depends_on"]["model-init"]["condition"]
+        == "service_completed_successfully"
+    )
